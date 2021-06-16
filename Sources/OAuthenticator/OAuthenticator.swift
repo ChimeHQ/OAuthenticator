@@ -35,6 +35,12 @@ public struct OAuthLogin: Codable {
     public var accessToken: Token
     public var refreshToken: Token?
     public var validUntilDate: Date
+
+    public init(accessToken: OAuthLogin.Token, refreshToken: OAuthLogin.Token? = nil, validUntilDate: Date) {
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+        self.validUntilDate = validUntilDate
+    }
 }
 
 struct LoginResponse: Decodable {
@@ -65,11 +71,10 @@ struct LoginResponse: Decodable {
 public enum OAuthenticatorError: Error {
     case missingResponseComponents
     case callbackURLInvalid
-    case unableToSerializeLoginData
-    case unableToDeserializeLoginData
+    case unableToStoreLoginData
+    case unableToRetrieveLoginData
     case refreshTokenUnavailable
     case unableToConstructURL
-    case refreshRetryNotSupported
     case loginAfterRefreshNeededNotSupported
 }
 
