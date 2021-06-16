@@ -7,6 +7,14 @@ public struct OAuthFlowHandler {
     public var callbackURLScheme: String
     public var scopes: [String]
 
+    public init(authorizationHost: String, clientId: String, clientPassword: String, callbackURLScheme: String, scopes: [String]) {
+        self.authorizationHost = authorizationHost
+        self.clientId = clientId
+        self.clientPassword = clientPassword
+        self.callbackURLScheme = callbackURLScheme
+        self.scopes = scopes
+    }
+
     public var scopeString: String {
         return scopes.joined(separator: " ")
     }
