@@ -2,14 +2,20 @@ import Foundation
 import OperationPlus
 
 class HandleAuthenticatedResultOperation: AsyncProducerOperation<URLSession.DataTaskResult> {
-    let config: AuthConfiguration
-    let request: URLRequest
     let loadResult: URLSession.DataTaskResult
+    private let applier: AuthenticationApplier
 
     init(request: URLRequest, response: URLLoader.LoadResult, config: AuthConfiguration) {
-        self.request = request
         self.loadResult = response
-        self.config = config
+        self.applier = AuthenticationApplier(request: request, config: config)
+    }
+
+    var config: AuthConfiguration {
+        return applier.config
+    }
+
+    var request: URLRequest {
+        return applier.request
     }
 
     override func main() {
@@ -23,9 +29,7 @@ class HandleAuthenticatedResultOperation: AsyncProducerOperation<URLSession.Data
             case .success(let login):
                 self.checkForRefresh(with: login)
             case .failure:
-                // Here, we could start an entire new login flow, but we'd need
-                // to pull out functionality from ApplyAuthenticationOperation
-                self.finish(with: .failure(OAuthenticatorError.loginAfterRefreshNeededNotSupported))
+                self.beginNewLogin()
             }
         }
     }
@@ -47,14 +51,14 @@ class HandleAuthenticatedResultOperation: AsyncProducerOperation<URLSession.Data
 
             self.config.loader.response(for: refreshRequest) { result in
                 switch result {
-                case .failure(let error):
-                    self.finish(with: .failure(error))
+                case .failure:
+                    self.beginNewLogin()
                 case .success(let response):
                     self.handleRefreshResponse(response, from: login)
                 }
             }
         } catch {
-            self.finish(with: .failure(error))
+            self.beginNewLogin()
         }
     }
 
@@ -75,7 +79,7 @@ class HandleAuthenticatedResultOperation: AsyncProducerOperation<URLSession.Data
                 self.retryOriginalRequest(with: login)
             }
         } catch {
-            self.finish(with: .failure(error))
+            self.beginNewLogin()
         }
     }
 
@@ -84,6 +88,23 @@ class HandleAuthenticatedResultOperation: AsyncProducerOperation<URLSession.Data
 
         config.loader.response(for: authedRequest) { result in
             self.finish(with: result)
+        }
+    }
+
+    private func beginNewLogin() {
+        // we want to attempt to re-request credentials from the user
+        // and use the resulting value to try the request again. We make the
+        // assumption that any successful login here will result in a token
+        // that will not immediately then require a refresh
+        applier.beginLogin() { result in
+            switch result {
+            case .failure(let error):
+                self.finish(with: .failure(error))
+            case .success(let request):
+                self.config.loader.response(for: request) { result in
+                    self.finish(with: result)
+                }
+            }
         }
     }
 }

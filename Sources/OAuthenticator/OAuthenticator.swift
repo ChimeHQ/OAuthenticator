@@ -153,3 +153,9 @@ extension OAuthenticator {
         }
     }
 }
+
+extension OAuthenticator {
+    static func getUserCredentials() {
+        
+    }
+}
