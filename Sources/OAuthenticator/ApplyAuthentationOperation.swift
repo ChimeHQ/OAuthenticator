@@ -21,10 +21,12 @@ class ApplyAuthentationOperation: AsyncProducerOperation<Result<URLRequest, Erro
     override func main() {
         OperationQueue.preconditionNotMain()
         
-        config.loginStorage.retrieveLogin { loginResult in
-            switch loginResult {
-            case .failure(let error):
-                self.finish(with: .failure(error))
+        config.loginStorage.retrieveLogin { storedLoginResult in
+            switch storedLoginResult {
+            case .failure:
+                self.applier.beginLogin { loginResult in
+                    self.finish(with: loginResult)
+                }
             case .success(let login):
                 self.applier.applyAuthentication(using: login) { result in
                     self.finish(with: result)
