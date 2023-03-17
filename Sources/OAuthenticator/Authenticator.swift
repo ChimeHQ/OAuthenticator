@@ -26,7 +26,7 @@ public final class Authenticator {
 		public init(appCredentials: AppCredentials,
 					loginStorage: LoginStorage? = nil,
 					tokenHandling: TokenHandling,
-					userAuthenticator: @escaping UserAuthenticator = ASWebAuthenticationSession.webAuthenticator) {
+					userAuthenticator: @escaping UserAuthenticator = ASWebAuthenticationSession.userAuthenticator) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling

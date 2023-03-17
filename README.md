@@ -27,7 +27,7 @@ let appCreds = AppCredentials(clientId: "client_id",
                               callbackURL: URL(string: "my://callback")!)
 
 // the user authentication function
-let userAuthenticator = ASWebAuthenticationSession.webAuthenticator
+let userAuthenticator = ASWebAuthenticationSession.userAuthenticator
 
 // functions that define how tokens are issued and refreshed
 // This is the most complex bit, as all the pieces depend on exactly how the OAuth-based service works

@@ -37,12 +37,12 @@ extension ASWebAuthenticationSession {
 	}
 	
 	@MainActor
-	public static func webAuthenticator(url: URL, scheme: String) async throws -> URL {
+	public static func userAuthenticator(url: URL, scheme: String) async throws -> URL {
 		try await begin(with: url, callbackURLScheme: scheme)
 	}
 #else
 	@MainActor
-	public static func webAuthenticator(url: URL, scheme: String) async throws -> URL {
+	public static func userAuthenticator(url: URL, scheme: String) async throws -> URL {
 		try await withCheckedThrowingContinuation { continuation in
 			let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme, completionHandler: { result in
 				continuation.resume(with: result)

@@ -11,7 +11,7 @@ final class AuthenticatorTests: XCTestCase {
 														scopes: ["123"],
 														callbackURL: URL(string: "my://callback")!)
 
-	private static let disabledWebAuthenticator: Authenticator.UserAuthenticator = { _, _ in
+	private static let disabledUserAuthenticator: Authenticator.UserAuthenticator = { _, _ in
 		throw AuthenticatorTestsError.disabled
 	}
 
@@ -105,7 +105,7 @@ final class AuthenticatorTests: XCTestCase {
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
 												 loginStorage: storage,
 												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledWebAuthenticator)
+												 userAuthenticator: Self.disabledUserAuthenticator)
 
 		let auth = await Authenticator(config: config, urlLoader: mockLoader)
 
@@ -155,7 +155,7 @@ final class AuthenticatorTests: XCTestCase {
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
 												 loginStorage: storage,
 												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledWebAuthenticator)
+												 userAuthenticator: Self.disabledUserAuthenticator)
 
 		let auth = await Authenticator(config: config, urlLoader: mockLoader)
 
