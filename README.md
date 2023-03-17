@@ -8,9 +8,9 @@ There are lots of OAuth solutions out there. This one is small, uses Swift concu
 
 ## Usage
 
-The main type is the `Authenticator`. It can execute a `URLRequest` in a similar fashion to `URLSession`, but will handle all authentication requirements and tack on the needed `Authorization` header. It's behavior is controlled via its `Authenticator.Configuration` and `URLResponseProvider`. By default, the `URLResponseProvider` will be a private `URLSession`, but you can fully customize this if needed.
+The main type is the `Authenticator`. It can execute a `URLRequest` in a similar fashion to `URLSession`, but will handle all authentication requirements and tack on the needed `Authorization` header. Its behavior is controlled via `Authenticator.Configuration` and `URLResponseProvider`. By default, the `URLResponseProvider` will be a private `URLSession`, but you can customize this if needed.
 
-Setting up a `Configuration` can be more work, depending on how the OAuth service you'll be interacting with will work.
+Setting up a `Configuration` can be more work, depending on the OAuth service you're interacting with.
 
 ```swift
 // backing storage for your authentication data. Without this, tokens will be tied to the lifetime of the `Authenticator`.
