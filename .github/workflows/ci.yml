@@ -20,4 +20,4 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Test platform ${{ matrix.destination }}
-        run: set -o pipefail && xcodebuild -scheme OAuthenticator -destination "${{ matrix.destination }}" test | xcpretty
+        run: swift test
