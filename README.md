@@ -17,7 +17,7 @@ Setting up a `Configuration` can be more work, depending on how the OAuth servic
 let storage = LoginStorage {
     // get login here
 } storeLogin: { login in
-    // store `login` for later retrival
+    // store `login` for later retrieval
 }
 
 // application credentials for your OAuth service
@@ -47,7 +47,7 @@ let myRequest = URLRequest(...)
 let (data, response) = try await authenticator.response(for: myRequest)
 ```
 
-OAuthenticator also comes with pre-packaged configuation for GitHub, which makes set up much more straight-forward.
+OAuthenticator also comes with pre-packaged configuration for GitHub, which makes set up much more straight-forward.
 
 ```swift
 // pre-configured for GitHub
