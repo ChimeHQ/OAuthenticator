@@ -22,9 +22,9 @@ public final class Authenticator {
 		/// User authentication will be triggered on-demand.
 		case automatic
 
-		/// User authentication will only occur via an explict call to `authenticate()`.
+		/// User authentication will only occur via an explicit call to `authenticate()`.
 		///
-		/// This is handy for controlling when users are prompted. It also makse it possible to handle situations where kicking a user out to the web is impossible.
+		/// This is handy for controlling when users are prompted. It also makes it possible to handle situations where kicking a user out to the web is impossible.
 		case manualOnly
 	}
 
