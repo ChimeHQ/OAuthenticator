@@ -3,7 +3,7 @@ import AuthenticationServices
 
 public enum AuthenticatorError: Error {
 	case missingScheme
-	case missingLoginCode
+	case missingAuthorizationCode
 	case missingTokenURL
 	case missingAuthorizationURL
 	case refreshUnsupported
