@@ -27,7 +27,7 @@ final class AuthenticatorTests: XCTestCase {
 		let authedLoadExp = expectation(description: "load url")
 
 		let mockLoader: URLResponseProvider = { request in
-			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "bearer TOKEN")
+			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer TOKEN")
 			authedLoadExp.fulfill()
 
 			return ("hello".data(using: .utf8)!, URLResponse())
@@ -84,7 +84,7 @@ final class AuthenticatorTests: XCTestCase {
 		let authedLoadExp = expectation(description: "load url")
 
 		let mockLoader: URLResponseProvider = { request in
-			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "bearer TOKEN")
+			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer TOKEN")
 			authedLoadExp.fulfill()
 
 			return ("hello".data(using: .utf8)!, URLResponse())
@@ -118,7 +118,7 @@ final class AuthenticatorTests: XCTestCase {
 		let authedLoadExp = expectation(description: "load url")
 
 		let mockLoader: URLResponseProvider = { request in
-			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "bearer REFRESHED")
+			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer REFRESHED")
 			authedLoadExp.fulfill()
 
 			return ("hello".data(using: .utf8)!, URLResponse())

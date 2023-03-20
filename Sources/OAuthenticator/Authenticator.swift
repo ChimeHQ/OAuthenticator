@@ -83,7 +83,7 @@ public final class Authenticator {
 		var authedRequest = request
 		let token = login.accessToken.value
 
-		authedRequest.setValue("bearer \(token)", forHTTPHeaderField: "Authorization")
+		authedRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		return try await urlLoader(authedRequest)
 	}
