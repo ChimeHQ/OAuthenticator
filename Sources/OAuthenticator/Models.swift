@@ -77,19 +77,46 @@ public struct LoginStorage {
 }
 
 public struct TokenHandling {
+	public enum ResponseStatus: Hashable, Sendable {
+		case valid
+		case refresh
+		case authorize
+		case refreshOrAuthorize
+	}
+
 	public typealias AuthorizationURLProvider = (AppCredentials) throws -> URL
 	public typealias LoginProvider = (URL, AppCredentials, URL, URLResponseProvider) async throws -> Login
 	public typealias RefreshProvider = (Login, AppCredentials, URLResponseProvider) async throws -> Login
+	public typealias ResponseStatusProvider = ((Data, URLResponse)) throws -> ResponseStatus
 
 	public let authorizationURLProvider: AuthorizationURLProvider
 	public let loginProvider: LoginProvider
 	public let refreshProvider: RefreshProvider?
+	public let responseStatusProvider: ResponseStatusProvider
 
 	public init(authorizationURLProvider: @escaping AuthorizationURLProvider,
 				loginProvider: @escaping LoginProvider,
-				refreshProvider: RefreshProvider? = nil) {
+				refreshProvider: RefreshProvider? = nil,
+				responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized) {
 		self.authorizationURLProvider = authorizationURLProvider
 		self.loginProvider = loginProvider
 		self.refreshProvider = refreshProvider
+		self.responseStatusProvider = responseStatusProvider
+	}
+
+	public static func allResponsesValid(result: (Data, URLResponse)) throws -> ResponseStatus {
+		return .valid
+	}
+
+	public static func refreshOrAuthorizeWhenUnauthorized(result: (Data, URLResponse)) throws -> ResponseStatus {
+		guard let response = result.1 as? HTTPURLResponse else {
+			throw AuthenticatorError.httpResponseExpected
+		}
+
+		if response.statusCode == 401 {
+			return .refresh
+		}
+
+		return .valid
 	}
 }

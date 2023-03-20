@@ -46,7 +46,8 @@ let userAuthenticator = ASWebAuthenticationSession.userAuthenticator
 // This is the most complex bit, as all the pieces depend on exactly how the OAuth-based service works
 let tokenHandling = TokenHandling(authorizationURLProvider: { appCreds in URL(string: "based on app credentials") }
                                   loginProvider: { authURL, appCreds, codeURL, urlLoader in ... }
-                                  refreshProvider: { existingLogin, appCreds, urlLoader in ... })
+                                  refreshProvider: { existingLogin, appCreds, urlLoader in ... },
+                                  responseStatusProvider: TokenHandling.refreshOrAuthorizeWhenUnauthorized)
 
 let config = Authenticator.Configuration(appCredentials: appCreds,
                                          loginStorage: storage,

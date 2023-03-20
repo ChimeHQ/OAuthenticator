@@ -9,6 +9,8 @@ public enum AuthenticatorError: Error {
 	case refreshUnsupported
 	case tokenInvalid
 	case manualAuthenticationRequired
+	case httpResponseExpected
+	case unauthorizedRefreshFailed
 }
 
 public typealias URLResponseProvider = (URLRequest) async throws -> (Data, URLResponse)
@@ -72,11 +74,40 @@ public final class Authenticator {
 	public func response(for request: URLRequest) async throws -> (Data, URLResponse) {
 		let login = try await loginTaskResult(manual: false)
 
-		let (data, response) = try await authedResponse(for: request, login: login)
+		let result = try await authedResponse(for: request, login: login)
 
-		// check for needed refresh here too
+		let action = try config.tokenHandling.responseStatusProvider(result)
 
-		return (data, response)
+		switch action {
+		case .authorize:
+			let newLogin = try await loginFromTask(task: Task {
+				return try await performUserAuthentication(manual: false)
+			})
+
+			return try await authedResponse(for: request, login: newLogin)
+		case .refresh:
+			let newLogin = try await loginFromTask(task: Task {
+				guard let value = try await refresh(with: login) else {
+					throw AuthenticatorError.unauthorizedRefreshFailed
+				}
+
+				return value
+			})
+
+			return try await authedResponse(for: request, login: newLogin)
+		case .refreshOrAuthorize:
+			let newLogin = try await loginFromTask(task: Task {
+				if let value = try await refresh(with: login) {
+					return value
+				}
+
+				return try await performUserAuthentication(manual: false)
+			})
+
+			return try await authedResponse(for: request, login: newLogin)
+		case .valid:
+			return result
+		}
 	}
 
 	private func authedResponse(for request: URLRequest, login: Login) async throws -> (Data, URLResponse) {
@@ -135,6 +166,10 @@ extension Authenticator {
 	private func loginTaskResult(manual: Bool) async throws -> Login {
 		let task = activeTokenTask ?? makeLoginTask(manual: manual)
 
+		return try await loginFromTask(task: task)
+	}
+
+	private func loginFromTask(task: Task<Login, Error>) async throws -> Login {
 		self.activeTokenTask = task
 
 		let login: Login
