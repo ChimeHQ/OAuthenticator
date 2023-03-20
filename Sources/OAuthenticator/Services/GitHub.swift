@@ -69,7 +69,7 @@ public enum GitHub {
 	}
 
 	static func authenticationRequest(with url: URL, appCredentials: AppCredentials) throws -> URLRequest {
-		let code = try url.accessCode
+		let code = try url.authorizationCode
 
 		var urlBuilder = URLComponents()
 

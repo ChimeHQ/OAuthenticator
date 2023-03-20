@@ -7,10 +7,10 @@ public extension URL {
 		return items?.compactMap { $0.value } ?? []
 	}
 
-	var accessCode: String {
+	var authorizationCode: String {
 		get throws {
 			guard let value = queryValues(named: "code").first else {
-				throw AuthenticatorError.missingLoginCode
+				throw AuthenticatorError.missingAuthorizationCode
 			}
 
 			return value
