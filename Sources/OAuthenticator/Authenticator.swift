@@ -8,13 +8,25 @@ public enum AuthenticatorError: Error {
 	case missingAuthorizationURL
 	case refreshUnsupported
 	case tokenInvalid
+	case manualAuthenticationRequired
 }
 
 public typealias URLResponseProvider = (URLRequest) async throws -> (Data, URLResponse)
 
+/// Manage state required to executed authenticated URLRequests.
 @MainActor
 public final class Authenticator {
 	public typealias UserAuthenticator = (URL, String) async throws -> URL
+
+	public enum UserAuthenticationMode: Hashable, Sendable {
+		/// User authentication will be triggered on-demand.
+		case automatic
+
+		/// User authentication will only occur via an explict call to `authenticate()`.
+		///
+		/// This is handy for controlling when users are prompted. It also makse it possible to handle situations where kicking a user out to the web is impossible.
+		case manualOnly
+	}
 
 	public struct Configuration {
 		public let appCredentials: AppCredentials
@@ -22,19 +34,23 @@ public final class Authenticator {
 		public let loginStorage: LoginStorage?
 		public let tokenHandling: TokenHandling
 		public let userAuthenticator: UserAuthenticator
+		public let mode: UserAuthenticationMode
 
 		public init(appCredentials: AppCredentials,
 					loginStorage: LoginStorage? = nil,
 					tokenHandling: TokenHandling,
+					mode: UserAuthenticationMode = .automatic,
 					userAuthenticator: @escaping UserAuthenticator = ASWebAuthenticationSession.userAuthenticator) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
+			self.mode = mode
 			self.userAuthenticator = userAuthenticator
 		}
 	}
 
 	let config: Configuration
+
 	let urlLoader: URLResponseProvider
 	private var activeTokenTask: Task<Login, Error>?
 	private var localLogin: Login?
@@ -45,14 +61,16 @@ public final class Authenticator {
 		self.urlLoader = loader ?? URLSession.defaultProvider
 	}
 
+	/// A default `URLSession`-backed `URLResponseProvider`.
 	public static let defaultResponseProvider: URLResponseProvider = {
 		let session = URLSession(configuration: .default)
 
 		return session.responseProvider
 	}()
 
+	/// Add authentication for `request`, execute it, and return its result.
 	public func response(for request: URLRequest) async throws -> (Data, URLResponse) {
-		let login = try await activeLogin()
+		let login = try await loginTaskResult(manual: false)
 
 		let (data, response) = try await authedResponse(for: request, login: login)
 
@@ -68,6 +86,11 @@ public final class Authenticator {
 		authedRequest.setValue("bearer \(token)", forHTTPHeaderField: "Authorization")
 
 		return try await urlLoader(authedRequest)
+	}
+
+	/// Manually perform user authentication, if required.
+	public func authenticate() async throws {
+		let _ = try await loginTaskResult(manual: true)
 	}
 }
 
@@ -91,10 +114,10 @@ extension Authenticator {
 }
 
 extension Authenticator {
-	private func makeLoginTask() -> Task<Login, Error> {
+	private func makeLoginTask(manual: Bool) -> Task<Login, Error> {
 		return Task {
 			guard let login = try await retrieveLogin() else {
-				return try await authenticate()
+				return try await performUserAuthentication(manual: manual)
 			}
 
 			if login.accessToken.valid {
@@ -105,12 +128,12 @@ extension Authenticator {
 				return refreshedLogin
 			}
 
-			return try await authenticate()
+			return try await performUserAuthentication(manual: manual)
 		}
 	}
 
-	public func activeLogin() async throws -> Login {
-		let task = activeTokenTask ?? makeLoginTask()
+	private func loginTaskResult(manual: Bool) async throws -> Login {
+		let task = activeTokenTask ?? makeLoginTask(manual: manual)
 
 		self.activeTokenTask = task
 
@@ -134,7 +157,11 @@ extension Authenticator {
 		return login
 	}
 
-	private func authenticate() async throws -> Login {
+	private func performUserAuthentication(manual: Bool) async throws -> Login {
+		if manual == false && config.mode == .manualOnly {
+			throw AuthenticatorError.manualAuthenticationRequired
+		}
+
 		let codeURL = try config.tokenHandling.authorizationURLProvider(config.appCredentials)
 		let scheme = try config.appCredentials.callbackURLScheme
 

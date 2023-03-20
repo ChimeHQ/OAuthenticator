@@ -4,7 +4,20 @@
 # OAuthenticator
 Lightweight OAuth 2.0 request authentication in Swift
 
-There are lots of OAuth solutions out there. This one is small, uses Swift concurrency, and offers fine-grained control over the process. It also comes with optional integration with `ASWebAuthenticationSession`.
+There are lots of OAuth solutions out there. This one is small, uses Swift concurrency, and offers lots of control over the process.
+
+Features:
+
+- Swift concurrency support
+- Fine-grained control over the entire token and refresh flow
+- Optional integration with `ASWebAuthenticationSession`
+- Control over when and if users are prompted to log into a service
+
+There's also built-in support for services to streamline integration:
+
+- GitHub
+
+If you'd like to contribute a similar thing for another service, please open a PR!
 
 ## Usage
 
@@ -65,8 +78,6 @@ let myRequest = URLRequest(...)
 
 let (data, response) = try await authenticator.response(for: myRequest)
 ```
-
-If you'd like to contribute a similar thing for another popular service, please open a PR!
 
 ## Contributing and Collaboration
 

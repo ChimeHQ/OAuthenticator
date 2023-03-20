@@ -33,9 +33,9 @@ final class AuthenticatorTests: XCTestCase {
 			return ("hello".data(using: .utf8)!, URLResponse())
 		}
 
-		let webAuthExp = expectation(description: "web auth")
-		let mockWebAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
-			webAuthExp.fulfill()
+		let userAuthExp = expectation(description: "user auth")
+		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+			userAuthExp.fulfill()
 			XCTAssertEqual(url, URL(string: "my://auth?client_id=abc")!)
 			XCTAssertEqual(scheme, "my")
 
@@ -71,13 +71,13 @@ final class AuthenticatorTests: XCTestCase {
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
 												 loginStorage: storage,
 												 tokenHandling: tokenHandling,
-												 userAuthenticator: mockWebAuthenticator)
+												 userAuthenticator: mockUserAuthenticator)
 
 		let auth = await Authenticator(config: config, urlLoader: mockLoader)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, webAuthExp, storeTokenExp, authedLoadExp], enforceOrder: true)
+		await fulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	func testExistingLogin() async throws {
@@ -111,7 +111,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, authedLoadExp], enforceOrder: true)
+		await fulfillment(of: [retrieveTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	func testExpiredTokenRefresh() async throws {
@@ -161,6 +161,59 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], enforceOrder: true)
+		await fulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+	}
+
+	func testManualAuthentication() async throws {
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
+			return URL(string: "my://auth?client_id=\(creds.clientId)")!
+		}
+
+		let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
+			XCTAssertEqual(url, URL(string: "my://login")!)
+
+			return Login(token: "TOKEN")
+		}
+
+		let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
+										  loginProvider: loginProvider)
+
+		let userAuthExp = expectation(description: "user auth")
+		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+			userAuthExp.fulfill()
+
+			return URL(string: "my://login")!
+		}
+
+		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
+												 tokenHandling: tokenHandling,
+												 mode: .manualOnly,
+												 userAuthenticator: mockUserAuthenticator)
+
+		let loadExp = expectation(description: "load url")
+		let mockLoader: URLResponseProvider = { request in
+			loadExp.fulfill()
+
+			return ("hello".data(using: .utf8)!, URLResponse())
+		}
+
+		let auth = await Authenticator(config: config, urlLoader: mockLoader)
+
+		do {
+			let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+
+			XCTFail()
+		} catch AuthenticatorError.manualAuthenticationRequired {
+
+		} catch {
+			XCTFail()
+		}
+
+		// now we explicitly authenticate, and things should work
+		try await auth.authenticate()
+
+		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+		
+		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 }
