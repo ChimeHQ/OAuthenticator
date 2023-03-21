@@ -1,5 +1,11 @@
 import Foundation
 
+/// Function that can execute a `URLRequest`.
+///
+/// This is used to abstract the actual networking system from the underlying authentication
+/// mechanism. Take a look at 
+public typealias URLResponseProvider = (URLRequest) async throws -> (Data, URLResponse)
+
 public struct Token: Codable, Hashable, Sendable {
 	public let value: String
 	public let expiry: Date?

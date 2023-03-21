@@ -13,8 +13,6 @@ public enum AuthenticatorError: Error {
 	case unauthorizedRefreshFailed
 }
 
-public typealias URLResponseProvider = (URLRequest) async throws -> (Data, URLResponse)
-
 /// Manage state required to executed authenticated URLRequests.
 @MainActor
 public final class Authenticator {
