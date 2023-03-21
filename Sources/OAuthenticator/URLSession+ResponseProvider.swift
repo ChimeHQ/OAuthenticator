@@ -2,7 +2,6 @@ import Foundation
 
 enum URLResponseProviderError: Error {
 	case missingResponseComponents
-	case missingScheme
 }
 
 extension URLSession {
