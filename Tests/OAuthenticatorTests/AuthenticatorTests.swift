@@ -42,6 +42,16 @@ final class AuthenticatorTests: XCTestCase {
 		throw AuthenticatorTestsError.disabled
 	}
 
+	private func compatFulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool) async {
+#if compiler(>=5.8)
+		await fulfillment(of: expectations, timeout: timeout, enforceOrder: enforceOrder)
+#else
+		await Task {
+			wait(for: , timeout: timeout, enforceOrder: enforceOrder)
+		}.value
+#endif
+	}
+
 	func testInitialLogin() async throws {
 		let authedLoadExp = expectation(description: "load url")
 
@@ -97,7 +107,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await compatFulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	func testExistingLogin() async throws {
@@ -183,7 +193,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await compatFulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	func testManualAuthentication() async throws {
@@ -237,21 +247,20 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		
-		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
+		await compatFulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 
+	@MainActor
 	func testUnauthorizedRequestRefreshes() async throws {
 		let requestedURL = URL(string: "https://example.com")!
 
-		let mockLoader = await MockURLResponseProvider()
+		let mockLoader = MockURLResponseProvider()
 		let mockData = "hello".data(using: .utf8)!
 
-		await MainActor.run {
-			mockLoader.responses = [
-				.success((Data(), HTTPURLResponse(url: requestedURL, statusCode: 401, httpVersion: nil, headerFields: nil)!)),
-				.success((mockData, HTTPURLResponse(url: requestedURL, statusCode: 200, httpVersion: nil, headerFields: nil)!)),
-			]
-		}
+		mockLoader.responses = [
+			.success((Data(), HTTPURLResponse(url: requestedURL, statusCode: 401, httpVersion: nil, headerFields: nil)!)),
+			.success((mockData, HTTPURLResponse(url: requestedURL, statusCode: 200, httpVersion: nil, headerFields: nil)!)),
+		]
 
 		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
 			return Login(token: "REFRESHED")
@@ -274,16 +283,13 @@ final class AuthenticatorTests: XCTestCase {
 												 tokenHandling: tokenHandling,
 												 userAuthenticator: Self.disabledUserAuthenticator)
 
-		let auth = await Authenticator(config: config, urlLoader: mockLoader.responseProvider)
+		let auth = Authenticator(config: config, urlLoader: mockLoader.responseProvider)
 
 		let (data, _) = try await auth.response(for: URLRequest(url: requestedURL))
 
 		XCTAssertEqual(data, mockData)
-
-		await MainActor.run {
-			XCTAssertEqual(mockLoader.requests.count, 2)
-			XCTAssertEqual(mockLoader.requests[0].allHTTPHeaderFields!["Authorization"], "Bearer EXPIRED")
-			XCTAssertEqual(mockLoader.requests[1].allHTTPHeaderFields!["Authorization"], "Bearer REFRESHED")
-		}
+		XCTAssertEqual(mockLoader.requests.count, 2)
+		XCTAssertEqual(mockLoader.requests[0].allHTTPHeaderFields!["Authorization"], "Bearer EXPIRED")
+		XCTAssertEqual(mockLoader.requests[1].allHTTPHeaderFields!["Authorization"], "Bearer REFRESHED")
 	}
 }
