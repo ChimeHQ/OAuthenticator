@@ -47,7 +47,7 @@ final class AuthenticatorTests: XCTestCase {
 		await fulfillment(of: expectations, timeout: timeout, enforceOrder: enforceOrder)
 #else
 		await Task {
-			wait(for: , timeout: timeout, enforceOrder: enforceOrder)
+			wait(for: expectations, timeout: timeout, enforceOrder: enforceOrder)
 		}.value
 #endif
 	}
@@ -142,7 +142,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await compatFulfillment(of: [retrieveTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	func testExpiredTokenRefresh() async throws {
