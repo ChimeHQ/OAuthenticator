@@ -16,8 +16,9 @@ jobs:
       matrix:
         destination:
           - "platform=macOS"
+          - "platform=iOS Simulator,name=iPhone 11"
 
     steps:
       - uses: actions/checkout@v3
       - name: Test platform ${{ matrix.destination }}
-        run: swift test
+        run: set -o pipefail && xcodebuild -scheme OAuthenticator -destination "${{ matrix.destination }}" test | xcpretty
