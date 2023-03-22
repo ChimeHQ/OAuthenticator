@@ -11,6 +11,7 @@ public enum AuthenticatorError: Error {
 	case manualAuthenticationRequired
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
+	case missingRedirectURI
 }
 
 /// Manage state required to executed authenticated URLRequests.
