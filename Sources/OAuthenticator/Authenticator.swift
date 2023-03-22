@@ -36,7 +36,7 @@ public final class Authenticator {
 		public let userAuthenticator: UserAuthenticator
 		public let mode: UserAuthenticationMode
 
-		@available(tvOS 16.0, *)
+		@available(tvOS 16.0, macCatalyst 13.0, *)
 		public init(appCredentials: AppCredentials,
 					loginStorage: LoginStorage? = nil,
 					tokenHandling: TokenHandling,

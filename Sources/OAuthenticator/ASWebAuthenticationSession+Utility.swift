@@ -5,7 +5,7 @@ enum WebAuthenticationSessionError: Error {
 	case resultInvalid
 }
 
-@available(tvOS 16.0, *)
+@available(tvOS 16.0, macCatalyst 13.0, *)
 extension ASWebAuthenticationSession {
 	convenience init(url: URL, callbackURLScheme: String, completionHandler: @escaping (Result<URL, Error>) -> Void) {
 		self.init(url: url, callbackURLScheme: callbackURLScheme, completionHandler: { (resultURL, error) in
@@ -22,7 +22,7 @@ extension ASWebAuthenticationSession {
 }
 
 
-@available(tvOS 16.0, *)
+@available(tvOS 16.0, macCatalyst 13.0, *)
 extension ASWebAuthenticationSession {
 #if os(iOS) || os(macOS)
 	@MainActor
@@ -32,7 +32,10 @@ extension ASWebAuthenticationSession {
 				continuation.resume(with: result)
 			})
 
-			session.prefersEphemeralWebBrowserSession = true
+			if #available(macCatalyst 13.1, *) {
+				session.prefersEphemeralWebBrowserSession = true
+			}
+			
 			session.presentationContextProvider = contextProvider
 
 			session.start()
@@ -51,7 +54,9 @@ extension ASWebAuthenticationSession {
 				continuation.resume(with: result)
 			})
 
+#if os(watchOS)
 			session.prefersEphemeralWebBrowserSession = true
+#endif
 
 			session.start()
 		}
