@@ -36,11 +36,23 @@ public final class Authenticator {
 		public let userAuthenticator: UserAuthenticator
 		public let mode: UserAuthenticationMode
 
+		@available(tvOS 16.0, *)
+		public init(appCredentials: AppCredentials,
+					loginStorage: LoginStorage? = nil,
+					tokenHandling: TokenHandling,
+					mode: UserAuthenticationMode = .automatic) {
+			self.appCredentials = appCredentials
+			self.loginStorage = loginStorage
+			self.tokenHandling = tokenHandling
+			self.mode = mode
+			self.userAuthenticator = ASWebAuthenticationSession.userAuthenticator
+		}
+
 		public init(appCredentials: AppCredentials,
 					loginStorage: LoginStorage? = nil,
 					tokenHandling: TokenHandling,
 					mode: UserAuthenticationMode = .automatic,
-					userAuthenticator: @escaping UserAuthenticator = ASWebAuthenticationSession.userAuthenticator) {
+					userAuthenticator: @escaping UserAuthenticator) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling

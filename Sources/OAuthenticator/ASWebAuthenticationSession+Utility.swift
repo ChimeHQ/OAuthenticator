@@ -5,7 +5,7 @@ enum WebAuthenticationSessionError: Error {
 	case resultInvalid
 }
 
-#if os(iOS) || os(macOS) || os(watchOS)
+@available(tvOS 16.0, *)
 extension ASWebAuthenticationSession {
 	convenience init(url: URL, callbackURLScheme: String, completionHandler: @escaping (Result<URL, Error>) -> Void) {
 		self.init(url: url, callbackURLScheme: callbackURLScheme, completionHandler: { (resultURL, error) in
@@ -22,6 +22,7 @@ extension ASWebAuthenticationSession {
 }
 
 
+@available(tvOS 16.0, *)
 extension ASWebAuthenticationSession {
 #if os(iOS) || os(macOS)
 	@MainActor
@@ -57,4 +58,3 @@ extension ASWebAuthenticationSession {
 	}
 #endif
 }
-#endif
