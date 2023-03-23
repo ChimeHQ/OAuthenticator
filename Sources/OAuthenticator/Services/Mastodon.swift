@@ -148,7 +148,7 @@ public struct Mastodon {
 		}
 	}
 
-	public static func register(with parameters: UserTokenParameters) async throws -> AppRegistrationResponse {
+	public static func register(with parameters: UserTokenParameters, urlLoader: URLResponseProvider) async throws -> AppRegistrationResponse {
 		var urlBuilder = URLComponents()
 
 		urlBuilder.scheme = Mastodon.scheme
@@ -167,7 +167,7 @@ public struct Mastodon {
 		var request = URLRequest(url: url)
 		request.httpMethod = "POST"
 
-		let (data, _) = try await URLSession.shared.data(for: request)
+		let (data, _) = try await urlLoader(request)
 		let registrationResponse = try JSONDecoder().decode(AppRegistrationResponse.self, from: data)
 		return registrationResponse
 	}
