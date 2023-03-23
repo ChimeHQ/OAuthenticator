@@ -4,12 +4,12 @@ public enum GitHub {
 	static let host = "github.com"
 
 	struct AppAuthResponse: Codable, Hashable, Sendable {
-		public let accessToken: String
-		public let expiresIn: Int
-		public let refreshToken: String
-		public let refreshTokenExpiresIn: Int
-		public let tokenType: String
-		public let scope: String
+		let accessToken: String
+		let expiresIn: Int
+		let refreshToken: String
+		let refreshTokenExpiresIn: Int
+		let tokenType: String
+		let scope: String
 
 		enum CodingKeys: String, CodingKey {
 			case accessToken = "access_token"
