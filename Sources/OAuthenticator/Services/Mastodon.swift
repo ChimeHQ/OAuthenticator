@@ -21,10 +21,10 @@ public struct Mastodon {
 	static let responseTypeCode: String = "code"
 
 	struct AppAuthResponse: Codable, Hashable, Sendable {
-		public let accessToken: String
-		public let scope: String
-		public let tokenType: String
-		public let createdAt: Int
+		let accessToken: String
+		let scope: String
+		let tokenType: String
+		let createdAt: Int
 
 		enum CodingKeys: String, CodingKey {
 			case accessToken = "access_token"
