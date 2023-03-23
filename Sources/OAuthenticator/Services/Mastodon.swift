@@ -40,13 +40,23 @@ public struct Mastodon {
 
 	public struct AppRegistrationResponse: Codable {
 		let id: String
-		public let client_id: String
-		public let client_secret: String
-		public let redirect_uri: String?
+		public let clientID: String
+		public let clientSecret: String
+		public let redirectURI: String?
 
 		let name: String?
 		let website: String?
-		let vapid_key: String?
+		let vapidKey: String?
+
+		enum CodingKeys: String, CodingKey {
+			case id
+			case clientID = "client_id"
+			case clientSecret = "client_secret"
+			case redirectURI = "redirect_uri"
+			case name
+			case website
+			case vapidKey  = "vapid_key"
+		}
 	}
 
 	public struct UserTokenParameters {
