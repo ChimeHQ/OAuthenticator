@@ -102,43 +102,36 @@ let userTokenParameters = Mastodon.UserTokenParameters(
 
 // The first thing we will need to do is to register an application, in order to be able to generate access tokens later.
 // These values will be used to generate access tokens, so they should be cached for later use
-let registrationData = try await Mastodon.register(with: userTokenParameters)
+let registrationData = try await Mastodon.register(with: userTokenParameters) { request in
+	try await URLSession.shared.data(for: request)
+}
 
 // Now that we have an application, let’s obtain an access token that will authenticate our requests as that client application.
-try await authenticate(parameters: userTokenParameters, registrationData: registrationData)
-
-```
-
-Example of implementation for the `authenticate` function:
-
-```
-static func authenticate(parameters: Mastodon.UserTokenParameters, registrationData: Mastodon.AppRegistrationResponse) async throws {
-	guard let redirectURI = registrationData.redirect_uri, let callbackURL = URL(string: redirectURI) else {
-		throw AuthenticatorError.missingRedirectURI
-	}
-
-	let appCreds = AppCredentials(clientId: registrationData.client_id,
-								  clientPassword: registrationData.client_secret,
-								  scopes: parameters.scopes,
-								  callbackURL: callbackURL)
-
-	let config = Authenticator.Configuration(appCredentials: appCreds,
-											 tokenHandling: Mastodon.tokenHandling(with: parameters))
-
-	let authenticator = await Authenticator(config: config)
-
-	var urlBuilder = URLComponents()
-	urlBuilder.scheme = Mastodon.scheme
-	urlBuilder.host = parameters.host
-
-	guard let url = urlBuilder.url else {
-		throw AuthenticatorError.missingScheme
-	}
-
-	let request = URLRequest(url: url)
-
-	let (data, response) = try await authenticator.response(for: request)
+guard let redirectURI = registrationData.redirect_uri, let callbackURL = URL(string: redirectURI) else {
+	throw AuthenticatorError.missingRedirectURI
 }
+
+let appCreds = AppCredentials(clientId: registrationData.client_id,
+							  clientPassword: registrationData.client_secret,
+							  scopes: userTokenParameters.scopes,
+							  callbackURL: callbackURL)
+
+let config = Authenticator.Configuration(appCredentials: appCreds,
+										 tokenHandling: Mastodon.tokenHandling(with: userTokenParameters))
+
+let authenticator = Authenticator(config: config)
+
+var urlBuilder = URLComponents()
+urlBuilder.scheme = Mastodon.scheme
+urlBuilder.host = userTokenParameters.host
+
+guard let url = urlBuilder.url else {
+	throw AuthenticatorError.missingScheme
+}
+
+let request = URLRequest(url: url)
+
+let (data, response) = try await authenticator.response(for: request)
 ```
 
 
