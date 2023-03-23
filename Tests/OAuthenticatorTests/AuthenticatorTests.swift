@@ -5,7 +5,6 @@ enum AuthenticatorTestsError: Error {
 	case disabled
 }
 
-@MainActor
 final class MockURLResponseProvider {
 	var responses: [Result<(Data, URLResponse), Error>] = []
 	private(set) var requests: [URLRequest] = []
@@ -52,6 +51,7 @@ final class AuthenticatorTests: XCTestCase {
 #endif
 	}
 
+	@MainActor
 	func testInitialLogin() async throws {
 		let authedLoadExp = expectation(description: "load url")
 
@@ -103,13 +103,14 @@ final class AuthenticatorTests: XCTestCase {
 												 tokenHandling: tokenHandling,
 												 userAuthenticator: mockUserAuthenticator)
 
-		let auth = await Authenticator(config: config, urlLoader: mockLoader)
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		await compatFulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
+	@MainActor
 	func testExistingLogin() async throws {
 		let authedLoadExp = expectation(description: "load url")
 
@@ -138,13 +139,14 @@ final class AuthenticatorTests: XCTestCase {
 												 tokenHandling: tokenHandling,
 												 userAuthenticator: Self.disabledUserAuthenticator)
 
-		let auth = await Authenticator(config: config, urlLoader: mockLoader)
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		await compatFulfillment(of: [retrieveTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
+	@MainActor
 	func testExpiredTokenRefresh() async throws {
 		let authedLoadExp = expectation(description: "load url")
 
@@ -189,13 +191,14 @@ final class AuthenticatorTests: XCTestCase {
 												 tokenHandling: tokenHandling,
 												 userAuthenticator: Self.disabledUserAuthenticator)
 
-		let auth = await Authenticator(config: config, urlLoader: mockLoader)
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		await compatFulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
+	@MainActor
 	func testManualAuthentication() async throws {
 		let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
 			return URL(string: "my://auth?client_id=\(creds.clientId)")!
@@ -230,7 +233,7 @@ final class AuthenticatorTests: XCTestCase {
 			return ("hello".data(using: .utf8)!, URLResponse())
 		}
 
-		let auth = await Authenticator(config: config, urlLoader: mockLoader)
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		do {
 			let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))

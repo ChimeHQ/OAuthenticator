@@ -15,7 +15,6 @@ public enum AuthenticatorError: Error {
 }
 
 /// Manage state required to executed authenticated URLRequests.
-@MainActor
 public final class Authenticator {
 	public typealias UserAuthenticator = (URL, String) async throws -> URL
 

@@ -25,7 +25,6 @@ extension ASWebAuthenticationSession {
 @available(tvOS 16.0, macCatalyst 13.0, *)
 extension ASWebAuthenticationSession {
 #if os(iOS) || os(macOS)
-	@MainActor
 	public static func begin(with url: URL, callbackURLScheme scheme: String, contextProvider: ASWebAuthenticationPresentationContextProviding = CredentialWindowProvider()) async throws -> URL {
 		try await withCheckedThrowingContinuation { continuation in
 			let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme, completionHandler: { result in
@@ -41,13 +40,11 @@ extension ASWebAuthenticationSession {
 			session.start()
 		}
 	}
-	
-	@MainActor
+
 	public static func userAuthenticator(url: URL, scheme: String) async throws -> URL {
 		try await begin(with: url, callbackURLScheme: scheme)
 	}
 #else
-	@MainActor
 	public static func userAuthenticator(url: URL, scheme: String) async throws -> URL {
 		try await withCheckedThrowingContinuation { continuation in
 			let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme, completionHandler: { result in
