@@ -18,6 +18,7 @@ Features:
 There's also built-in support for services to streamline integration:
 
 - GitHub
+- Mastodon
 
 If you'd like to contribute a similar thing for another service, please open a PR!
 
@@ -63,6 +64,9 @@ let myRequest = URLRequest(...)
 let (data, response) = try await authenticator.response(for: myRequest)
 ```
 
+
+### GitHub
+
 OAuthenticator also comes with pre-packaged configuration for GitHub, which makes set up much more straight-forward.
 
 ```swift
@@ -81,6 +85,55 @@ let myRequest = URLRequest(...)
 
 let (data, response) = try await authenticator.response(for: myRequest)
 ```
+
+
+### Mastodon
+
+OAuthenticator also comes with pre-packaged configuration for Mastodon, which makes set up much more straight-forward.
+For more info, please check out [https://docs.joinmastodon.org/client/token/](https://docs.joinmastodon.org/client/token/)
+
+```swift
+// pre-configured for Mastodon
+let userTokenParameters = Mastodon.UserTokenParameters(
+	host: "mastodon.social",
+	clientName: "MyMastodonApp",
+	redirectURI: "myMastodonApp://mastodon/oauth",
+	scopes: ["read", "write", "follow"])
+
+// The first thing we will need to do is to register an application, in order to be able to generate access tokens later.
+// These values will be used to generate access tokens, so they should be cached for later use
+let registrationData = try await Mastodon.register(with: userTokenParameters) { request in
+	try await URLSession.shared.data(for: request)
+}
+
+// Now that we have an application, let’s obtain an access token that will authenticate our requests as that client application.
+guard let redirectURI = registrationData.redirect_uri, let callbackURL = URL(string: redirectURI) else {
+	throw AuthenticatorError.missingRedirectURI
+}
+
+let appCreds = AppCredentials(clientId: registrationData.client_id,
+							  clientPassword: registrationData.client_secret,
+							  scopes: userTokenParameters.scopes,
+							  callbackURL: callbackURL)
+
+let config = Authenticator.Configuration(appCredentials: appCreds,
+										 tokenHandling: Mastodon.tokenHandling(with: userTokenParameters))
+
+let authenticator = Authenticator(config: config)
+
+var urlBuilder = URLComponents()
+urlBuilder.scheme = Mastodon.scheme
+urlBuilder.host = userTokenParameters.host
+
+guard let url = urlBuilder.url else {
+	throw AuthenticatorError.missingScheme
+}
+
+let request = URLRequest(url: url)
+
+let (data, response) = try await authenticator.response(for: request)
+```
+
 
 ## Contributing and Collaboration
 
