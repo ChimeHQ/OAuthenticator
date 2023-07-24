@@ -1,5 +1,10 @@
 import Foundation
 
+/// OAuth details for github.com
+///
+/// GitHub supports two different kinds of integrations, called "OAuth Apps" and "GitHub Apps". Make sure to check which kind you need, as they differ in their authentication requirements.
+///
+/// Check out https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/differences-between-github-apps-and-oauth-apps
 public enum GitHub {
 	static let host = "github.com"
 
@@ -26,6 +31,22 @@ public enum GitHub {
 		}
 	}
 
+	struct OAuthResponse: Codable, Hashable, Sendable {
+		let accessToken: String
+		let tokenType: String
+		let scope: String
+
+		enum CodingKeys: String, CodingKey {
+			case accessToken = "access_token"
+			case tokenType = "token_type"
+			case scope
+		}
+
+		var login: Login {
+			Login(token: accessToken)
+		}
+	}
+
 	public struct UserTokenParameters {
 		public let state: String?
 		public let login: String?
@@ -38,10 +59,17 @@ public enum GitHub {
 		}
 	}
 
-	public static func tokenHandling(with parameters: UserTokenParameters = .init()) -> TokenHandling {
+	/// TokenHandling for GitHub Apps
+	public static func gitHubAppTokenHandling(with parameters: UserTokenParameters = .init()) -> TokenHandling {
 		TokenHandling(authorizationURLProvider: authorizationURLProvider(with: parameters),
-					  loginProvider: loginProvider,
+					  loginProvider: gitHubAppLoginProvider,
 					  refreshProvider: refreshProvider)
+	}
+
+	/// TokenHandling for OAuth Apps
+	public static func OAuthAppTokenHandling() -> TokenHandling {
+		TokenHandling(authorizationURLProvider: authorizationURLProvider(with: .init()),
+					  loginProvider: OAuthAppLoginProvider)
 	}
 
 	static func authorizationURLProvider(with parameters: UserTokenParameters) -> TokenHandling.AuthorizationURLProvider {
@@ -95,7 +123,7 @@ public enum GitHub {
 		return request
 	}
 
-	static func loginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
+	static func gitHubAppLoginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
 		let request = try authenticationRequest(with: url, appCredentials: credentials)
 
 		let (data, _) = try await urlLoader(request)
@@ -105,7 +133,18 @@ public enum GitHub {
 		return response.login
 	}
 
+	static func OAuthAppLoginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
+		let request = try authenticationRequest(with: url, appCredentials: credentials)
+
+		let (data, _) = try await urlLoader(request)
+
+		let response = try JSONDecoder().decode(GitHub.OAuthResponse.self, from: data)
+
+		return response.login
+	}
+
 	static func refreshProvider(login: Login, credentials: AppCredentials, urlLoader: URLResponseProvider) async throws -> Login {
+		// TODO: GitHub Apps actually do support refresh
 		throw AuthenticatorError.refreshUnsupported
 	}
 }
