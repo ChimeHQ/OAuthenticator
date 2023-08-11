@@ -54,7 +54,7 @@ let tokenHandling = TokenHandling(authorizationURLProvider: { appCreds in URL(st
 
 let config = Authenticator.Configuration(appCredentials: appCreds,
                                          loginStorage: storage,
-                                         tokenHandling: <#T##TokenHandling#>,
+                                         tokenHandling: tokenHandling,
                                          userAuthenticator: userAuthenticator)
 
 let authenticator = Authenticator(config: config)
