@@ -12,11 +12,19 @@ public enum AuthenticatorError: Error {
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
 	case missingRedirectURI
+	case failingAuthenticatorUsed
 }
 
 /// Manage state required to executed authenticated URLRequests.
 public final class Authenticator {
 	public typealias UserAuthenticator = (URL, String) async throws -> URL
+
+	/// A `UserAuthenticator` that always fails. Useful as a placeholder
+	/// for testing and for doing manual authentication with an external
+	/// instance not available at configuration-creation time.
+	public static nonisolated let failingUserAuthenticator: UserAuthenticator = { _, _ in
+		throw AuthenticatorError.failingAuthenticatorUsed
+	}
 
 	public enum UserAuthenticationMode: Hashable, Sendable {
 		/// User authentication will be triggered on-demand.
@@ -82,7 +90,9 @@ public final class Authenticator {
 
 	/// Add authentication for `request`, execute it, and return its result.
 	public func response(for request: URLRequest) async throws -> (Data, URLResponse) {
-		let login = try await loginTaskResult(manual: false)
+		let userAuthenticator = config.userAuthenticator
+
+		let login = try await loginTaskResult(manual: false, userAuthenticator: userAuthenticator)
 
 		let result = try await authedResponse(for: request, login: login)
 
@@ -91,7 +101,7 @@ public final class Authenticator {
 		switch action {
 		case .authorize:
 			let newLogin = try await loginFromTask(task: Task {
-				return try await performUserAuthentication(manual: false)
+				return try await performUserAuthentication(manual: false, userAuthenticator: userAuthenticator)
 			})
 
 			return try await authedResponse(for: request, login: newLogin)
@@ -111,7 +121,7 @@ public final class Authenticator {
 					return value
 				}
 
-				return try await performUserAuthentication(manual: false)
+				return try await performUserAuthentication(manual: false, userAuthenticator: userAuthenticator)
 			})
 
 			return try await authedResponse(for: request, login: newLogin)
@@ -130,8 +140,9 @@ public final class Authenticator {
 	}
 
 	/// Manually perform user authentication, if required.
-	public func authenticate() async throws {
-		let _ = try await loginTaskResult(manual: true)
+	@MainActor
+	public func authenticate(with userAuthenticator: UserAuthenticator? = nil) async throws {
+		let _ = try await loginTaskResult(manual: true, userAuthenticator: userAuthenticator ?? config.userAuthenticator)
 	}
 }
 
@@ -155,10 +166,10 @@ extension Authenticator {
 }
 
 extension Authenticator {
-	private func makeLoginTask(manual: Bool) -> Task<Login, Error> {
+	private func makeLoginTask(manual: Bool, userAuthenticator: @escaping UserAuthenticator) -> Task<Login, Error> {
 		return Task {
 			guard let login = try await retrieveLogin() else {
-				return try await performUserAuthentication(manual: manual)
+				return try await performUserAuthentication(manual: manual, userAuthenticator: userAuthenticator)
 			}
 
 			if login.accessToken.valid {
@@ -169,12 +180,12 @@ extension Authenticator {
 				return refreshedLogin
 			}
 
-			return try await performUserAuthentication(manual: manual)
+			return try await performUserAuthentication(manual: manual, userAuthenticator: userAuthenticator)
 		}
 	}
 
-	private func loginTaskResult(manual: Bool) async throws -> Login {
-		let task = activeTokenTask ?? makeLoginTask(manual: manual)
+	private func loginTaskResult(manual: Bool, userAuthenticator: @escaping UserAuthenticator) async throws -> Login {
+		let task = activeTokenTask ?? makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
 
 		return try await loginFromTask(task: task)
 	}
@@ -202,7 +213,7 @@ extension Authenticator {
 		return login
 	}
 
-	private func performUserAuthentication(manual: Bool) async throws -> Login {
+	private func performUserAuthentication(manual: Bool, userAuthenticator: UserAuthenticator) async throws -> Login {
 		if manual == false && config.mode == .manualOnly {
 			throw AuthenticatorError.manualAuthenticationRequired
 		}
@@ -210,7 +221,7 @@ extension Authenticator {
 		let codeURL = try config.tokenHandling.authorizationURLProvider(config.appCredentials)
 		let scheme = try config.appCredentials.callbackURLScheme
 
-		let	url = try await config.userAuthenticator(codeURL, scheme)
+		let	url = try await userAuthenticator(codeURL, scheme)
 		let login = try await config.tokenHandling.loginProvider(url, config.appCredentials, codeURL, urlLoader)
 
 		try await storeLogin(login)
@@ -236,5 +247,11 @@ extension Authenticator {
 		try await storeLogin(login)
 
 		return login
+	}
+}
+
+extension Authenticator {
+	public var responseProvider: URLResponseProvider {
+		{ try await self.response(for: $0) }
 	}
 }

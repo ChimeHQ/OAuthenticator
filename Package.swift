@@ -2,6 +2,10 @@
 
 import PackageDescription
 
+let settings: [SwiftSetting] = [
+	// .unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
+]
+
 let package = Package(
 	name: "OAuthenticator",
 	platforms: [.macOS(.v10_15), .iOS(.v13), .tvOS(.v13), .watchOS("6.2")],
@@ -11,7 +15,7 @@ let package = Package(
 	dependencies: [
 	],
 	targets: [
-		.target(name: "OAuthenticator", dependencies: []),
-		.testTarget(name: "OAuthenticatorTests", dependencies: ["OAuthenticator"]),
+		.target(name: "OAuthenticator", dependencies: [], swiftSettings: settings),
+		.testTarget(name: "OAuthenticatorTests", dependencies: ["OAuthenticator"], swiftSettings: settings),
 	]
 )
