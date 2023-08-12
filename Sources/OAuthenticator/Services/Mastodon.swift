@@ -38,7 +38,7 @@ public struct Mastodon {
 		}
 	}
 
-	public struct AppRegistrationResponse: Codable {
+	public struct AppRegistrationResponse: Codable, Sendable {
 		let id: String
 		public let clientID: String
 		public let clientSecret: String
@@ -59,7 +59,7 @@ public struct Mastodon {
 		}
 	}
 
-	public struct UserTokenParameters {
+	public struct UserTokenParameters: Sendable {
 		public let host: String
 		public let clientName: String
 		public let redirectURI: String

@@ -47,7 +47,7 @@ public enum GitHub {
 		}
 	}
 
-	public struct UserTokenParameters {
+	public struct UserTokenParameters: Sendable {
 		public let state: String?
 		public let login: String?
 		public let allowSignup: Bool?
