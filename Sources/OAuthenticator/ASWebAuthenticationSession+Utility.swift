@@ -7,6 +7,7 @@ enum WebAuthenticationSessionError: Error {
 
 @available(tvOS 16.0, macCatalyst 13.0, *)
 extension ASWebAuthenticationSession {
+	@MainActor
 	convenience init(url: URL, callbackURLScheme: String, completionHandler: @escaping (Result<URL, Error>) -> Void) {
 		self.init(url: url, callbackURLScheme: callbackURLScheme, completionHandler: { (resultURL, error) in
 			switch (resultURL, error) {
@@ -25,7 +26,8 @@ extension ASWebAuthenticationSession {
 @available(tvOS 16.0, macCatalyst 13.0, *)
 extension ASWebAuthenticationSession {
 #if os(iOS) || os(macOS)
-	public static func begin(with url: URL, callbackURLScheme scheme: String, contextProvider: ASWebAuthenticationPresentationContextProviding = CredentialWindowProvider()) async throws -> URL {
+	@MainActor
+	public static func begin(with url: URL, callbackURLScheme scheme: String, contextProvider: ASWebAuthenticationPresentationContextProviding) async throws -> URL {
 		try await withCheckedThrowingContinuation { continuation in
 			let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme, completionHandler: { result in
 				continuation.resume(with: result)
@@ -41,10 +43,17 @@ extension ASWebAuthenticationSession {
 		}
 	}
 
+	@MainActor
+	public static func begin(with url: URL, callbackURLScheme scheme: String) async throws -> URL {
+		try await begin(with: url, callbackURLScheme: scheme, contextProvider: CredentialWindowProvider())
+	}
+
+	@MainActor
 	public static func userAuthenticator(url: URL, scheme: String) async throws -> URL {
 		try await begin(with: url, callbackURLScheme: scheme)
 	}
 #else
+	@MainActor
 	public static func userAuthenticator(url: URL, scheme: String) async throws -> URL {
 		try await withCheckedThrowingContinuation { continuation in
 			let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme, completionHandler: { result in

@@ -7,6 +7,7 @@ import Cocoa
 #endif
 import AuthenticationServices
 
+@MainActor
 public final class CredentialWindowProvider: NSObject {
 #if os(iOS)
 	private var scenes: [UIWindowScene] {
