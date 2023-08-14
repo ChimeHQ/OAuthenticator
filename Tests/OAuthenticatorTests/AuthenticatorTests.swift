@@ -1,21 +1,24 @@
 import XCTest
-@testable import OAuthenticator
+import OAuthenticator
 
 enum AuthenticatorTestsError: Error {
 	case disabled
 }
 
-final class MockURLResponseProvider {
+final class MockURLResponseProvider: @unchecked Sendable {
 	var responses: [Result<(Data, URLResponse), Error>] = []
 	private(set) var requests: [URLRequest] = []
+	private let lock = NSLock()
 
 	init() {
 	}
 
 	func response(for request: URLRequest) throws -> (Data, URLResponse) {
-		requests.append(request)
+		try lock.withLock {
+			requests.append(request)
 
-		return try responses.removeFirst().get()
+			return try responses.removeFirst().get()
+		}
 	}
 
 	var responseProvider: URLResponseProvider {
