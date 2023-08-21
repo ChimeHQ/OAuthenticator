@@ -149,7 +149,7 @@ public final class Authenticator {
 }
 
 extension Authenticator {
-	public func retrieveLogin() async throws -> Login? {
+	private func retrieveLogin() async throws -> Login? {
 		guard let storage = config.loginStorage else {
 			return localLogin
 		}
@@ -157,7 +157,7 @@ extension Authenticator {
 		return try await storage.retrieveLogin()
 	}
 
-	public func storeLogin(_ login: Login) async throws {
+	private func storeLogin(_ login: Login) async throws {
 		guard let storage = config.loginStorage else {
 			self.localLogin = login
 			return
