@@ -1,10 +1,6 @@
 //
 //  GoogleTests.swift
-//  OceanLabsTests
 //
-//  Created by Martin Dufort on 2023-08-10.
-//
-
 import XCTest
 import OSLog
 @testable import OAuthenticator

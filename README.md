@@ -173,9 +173,9 @@ try await authenticator.authenticate()
 
 // 2: Access secure Google endpoint (ie: Google Drive: upload a file) with access token
 var urlBuilder = URLComponents()
-urlBuilder.scheme = GoogleDrive.scheme            // https:
-urlBuilder.host = GoogleDrive.host              // www.googleapis.com
-urlBuilder.path = GoogleDrive.path                // /upload/drive/v3/files
+urlBuilder.scheme = GoogleAPI.scheme          // https:
+urlBuilder.host = GoogleAPI.host              // www.googleapis.com
+urlBuilder.path = GoogleAPI.path              // /upload/drive/v3/files
 urlBuilder.queryItems = [
     URLQueryItem(name: GoogleDrive.uploadType, value: "media"),
 ]

@@ -97,10 +97,8 @@ public struct GoogleAPI {
         // can continue forward or not.
         let grantedScopeItems = grantedScope.components(separatedBy: " ")
         if appCredentials.scopes.count > grantedScopeItems.count {
-            // For now, just display that less scope was authorized
+            // For now, just log that less scope was authorized
             os_log(.info, "[Authentication] Granted scopes less than requested scopes")
-            print("GrantedScope: \(grantedScope)")
-            print("RequestedScope: \(appCredentials.scopeString)")
         }
 
         // Regardless if we want to move forward, we need to supply the granted scopes.
@@ -205,17 +203,4 @@ public struct GoogleAPI {
             }
         }
 	}
-}
-
-public extension URL {
-    /// Add the ability to retrieve the scope query item from the URL
-    var grantedScope: String {
-        get throws {
-            guard let value = queryValues(named: "scope").first else {
-                throw AuthenticatorError.missingScope
-            }
-
-            return value
-        }
-    }
 }

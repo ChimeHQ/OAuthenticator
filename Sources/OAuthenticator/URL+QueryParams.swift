@@ -16,4 +16,17 @@ public extension URL {
 			return value
 		}
 	}
+    
+    ///
+    /// The scope query parameter contains the authorized scopes by the user
+    /// Typically used for the GoogleAPI
+    var grantedScope: String {
+        get throws {
+            guard let value = queryValues(named: "scope").first else {
+                throw AuthenticatorError.missingScope
+            }
+
+            return value
+        }
+    }
 }
