@@ -19,6 +19,7 @@ There's also built-in support for services to streamline integration:
 
 - GitHub
 - Mastodon
+- Google API
 
 If you'd like to contribute a similar thing for another service, please open a PR!
 
@@ -130,6 +131,62 @@ guard let url = urlBuilder.url else {
 }
 
 let request = URLRequest(url: url)
+
+let (data, response) = try await authenticator.response(for: request)
+```
+
+### Google API
+OAuthenticator also comes with pre-packaged configuration for Google APIs (access to Google Drive, Google People, Google Calendar, ...) according to the application requested scopes.
+
+More info about those at [Google Workspace](https://developers.google.com/workspace). The Google OAuth process is described in [Google Identity](https://developers.google.com/identity) 
+
+Integration example below: 
+```swift
+// Configuration for Google API
+
+// Define how to store and retrieve the Google Access and Refresh Token
+let storage = LoginStorage {
+    // Fetch token and return them as a Login object
+    return LoginFromSecureStorage(...) 
+} storeLogin: { login in
+    // Store access and refresh token in Secure storage
+    MySecureStorage(login: login)
+}
+
+let appCreds = AppCredentials(clientId: googleClientApp.client_id,
+                              clientPassword: googleClientApp.client_secret,
+                              scopes: googleClientApp.scopes,
+                              callbackURL: googleClient.callbackURL)
+
+let config = Authenticator.Configuration(appCredentials: Self.oceanCredentials,
+                                         loginStorage: storage,
+                                         tokenHandling: tokenHandling,
+                                         mode: .automatic)
+
+let authenticator = Authenticator(config: config)
+
+// If you just want the user to authenticate his account and get the tokens, do 1:
+// If you want to access a secure Google endpoint with the proper access token, do 2:
+
+// 1: Only Authenticate
+try await authenticator.authenticate()
+
+// 2: Access secure Google endpoint (ie: Google Drive: upload a file) with access token
+var urlBuilder = URLComponents()
+urlBuilder.scheme = GoogleAPI.scheme          // https:
+urlBuilder.host = GoogleAPI.host              // www.googleapis.com
+urlBuilder.path = GoogleAPI.path              // /upload/drive/v3/files
+urlBuilder.queryItems = [
+    URLQueryItem(name: GoogleDrive.uploadType, value: "media"),
+]
+
+guard let url = urlBuilder.url else {
+    throw AuthenticatorError.missingScheme
+}
+
+let request = URLRequest(url: url)
+request.httpMethod = "POST"
+request.httpBody = ...          // File data to upload
 
 let (data, response) = try await authenticator.response(for: request)
 ```

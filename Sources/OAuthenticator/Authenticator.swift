@@ -12,6 +12,8 @@ public enum AuthenticatorError: Error {
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
 	case missingRedirectURI
+    case missingRefreshToken
+    case missingScope
 	case failingAuthenticatorUsed
 }
 
