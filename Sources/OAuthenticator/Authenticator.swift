@@ -20,7 +20,8 @@ public enum AuthenticatorError: Error {
 /// Manage state required to executed authenticated URLRequests.
 public final class Authenticator {
 	public typealias UserAuthenticator = (URL, String) async throws -> URL
-
+    public typealias AuthenticationResult = (Login?, AuthenticatorError?) -> Void
+    
 	/// A `UserAuthenticator` that always fails. Useful as a placeholder
 	/// for testing and for doing manual authentication with an external
 	/// instance not available at configuration-creation time.
@@ -45,29 +46,36 @@ public final class Authenticator {
 		public let tokenHandling: TokenHandling
 		public let userAuthenticator: UserAuthenticator
 		public let mode: UserAuthenticationMode
+        
+        // Specify an authenticationResult closure to obtain result and grantedScope
+        public let authenticationResult: AuthenticationResult?
 
 		@available(tvOS 16.0, macCatalyst 13.0, *)
 		public init(appCredentials: AppCredentials,
 					loginStorage: LoginStorage? = nil,
 					tokenHandling: TokenHandling,
-					mode: UserAuthenticationMode = .automatic) {
+					mode: UserAuthenticationMode = .automatic,
+                    authenticationResult: AuthenticationResult? = nil) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
 			self.mode = mode
 			self.userAuthenticator = ASWebAuthenticationSession.userAuthenticator
+            self.authenticationResult = authenticationResult
 		}
 
 		public init(appCredentials: AppCredentials,
 					loginStorage: LoginStorage? = nil,
 					tokenHandling: TokenHandling,
 					mode: UserAuthenticationMode = .automatic,
-					userAuthenticator: @escaping UserAuthenticator) {
+					userAuthenticator: @escaping UserAuthenticator,
+                    authenticationResult: AuthenticationResult? = nil) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
 			self.mode = mode
 			self.userAuthenticator = userAuthenticator
+            self.authenticationResult = authenticationResult
 		}
 	}
 
@@ -189,7 +197,22 @@ extension Authenticator {
 	private func loginTaskResult(manual: Bool, userAuthenticator: @escaping UserAuthenticator) async throws -> Login {
 		let task = activeTokenTask ?? makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
 
-		return try await loginFromTask(task: task)
+        var login: Login? = nil
+        do {
+            login = try await loginFromTask(task: task)
+
+            // Inform authenticationResult closure of new login information
+            self.config.authenticationResult?(login, nil)
+        }
+        catch let authenticatorError as AuthenticatorError {
+            // Capture error and inform authenticationResult closure about it
+            self.config.authenticationResult?(nil, authenticatorError)
+
+            // Rethrow error
+            throw authenticatorError
+        }
+        
+		return login!
 	}
 
 	private func loginFromTask(task: Task<Login, Error>) async throws -> Login {

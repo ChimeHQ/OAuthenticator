@@ -3,7 +3,7 @@ import Foundation
 /// Function that can execute a `URLRequest`.
 ///
 /// This is used to abstract the actual networking system from the underlying authentication
-/// mechanism. Take a look at 
+/// mechanism.
 public typealias URLResponseProvider = (URLRequest) async throws -> (Data, URLResponse)
 
 public struct Token: Codable, Hashable, Sendable {
@@ -30,10 +30,14 @@ public struct Token: Codable, Hashable, Sendable {
 public struct Login: Codable, Hashable, Sendable {
 	public var accessToken: Token
 	public var refreshToken: Token?
-
-	public init(accessToken: Token, refreshToken: Token? = nil) {
+    
+    // User authorized scopes
+    public var scopes: String?
+    
+    public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil) {
 		self.accessToken = accessToken
 		self.refreshToken = refreshToken
+        self.scopes = scopes
 	}
 
 	public init(token: String, validUntilDate: Date? = nil) {
