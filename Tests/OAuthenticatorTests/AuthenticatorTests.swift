@@ -256,6 +256,65 @@ final class AuthenticatorTests: XCTestCase {
 		await compatFulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 
+    @MainActor
+    func testManualAuthenticationWithResultCallback() async throws {
+        let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
+            return URL(string: "my://auth?client_id=\(creds.clientId)")!
+        }
+
+        let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
+            XCTAssertEqual(url, URL(string: "my://login")!)
+
+            return Login(token: "TOKEN")
+        }
+
+        let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
+                                          loginProvider: loginProvider,
+                                          responseStatusProvider: TokenHandling.allResponsesValid)
+
+        let userAuthExp = expectation(description: "user auth")
+        let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+            userAuthExp.fulfill()
+
+            return URL(string: "my://login")!
+        }
+        
+        // This is the callback to obtain authentication results
+        var authenticatedLogin: Login?
+        let authenticationResultCallback: Authenticator.AuthenticationResult = { login, error in
+            if error != nil {
+                authenticatedLogin = nil
+                return
+            }
+            authenticatedLogin = login
+        }
+        
+        // Configure Authenticator with result callback
+        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
+                                                 tokenHandling: tokenHandling,
+                                                 mode: .manualOnly,
+                                                 userAuthenticator: mockUserAuthenticator,
+                                                 authenticationResult: authenticationResultCallback)
+
+        let loadExp = expectation(description: "load url")
+        let mockLoader: URLResponseProvider = { request in
+            loadExp.fulfill()
+
+            return ("hello".data(using: .utf8)!, URLResponse())
+        }
+
+        let auth = Authenticator(config: config, urlLoader: mockLoader)
+        // Explicitly authenticate and grab Login information after
+        try await auth.authenticate()
+        
+        // Ensure our authenticatedLogin objet is available
+        XCTAssertNotNil(authenticatedLogin)
+
+        let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+        
+        await compatFulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
+    }
+
 	@MainActor
 	func testUnauthorizedRequestRefreshes() async throws {
 		let requestedURL = URL(string: "https://example.com")!
