@@ -307,8 +307,9 @@ final class AuthenticatorTests: XCTestCase {
         // Explicitly authenticate and grab Login information after
         try await auth.authenticate()
         
-        // Ensure our authenticatedLogin objet is available
+        // Ensure our authenticatedLogin objet is available and contains the proper Token
         XCTAssertNotNil(authenticatedLogin)
+        XCTAssertEqual(authenticatedLogin?.accessToken.value, "TOKEN")
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
         

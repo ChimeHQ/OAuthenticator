@@ -65,6 +65,31 @@ let myRequest = URLRequest(...)
 let (data, response) = try await authenticator.response(for: myRequest)
 ```
 
+If you want to receive the result of the authentication process without issuing a URLRequest first, you can specify
+an optional `Authenticator.AuthenticationResult` callback function within the `Authenticator.Configuration` initializer.
+
+This allows you to support special cases where you need to capture the `Login` object before executing your first
+authenticated URLRequest and manage that separately.
+
+``` swift
+let authenticationResultCallback: Authenticator.AuthenticationResult = { login, error in
+    ...
+    authenticatedLogin = login
+}
+
+// Configure Authenticator with result callback
+let config = Authenticator.Configuration(appCredentials: appCreds,
+                                         tokenHandling: tokenHandling,
+                                         mode: .manualOnly,
+                                         userAuthenticator: userAuthenticator,
+                                         authenticationResult: authenticationResultCallback)
+let auth = Authenticator(config: config, urlLoader: mockLoader)
+try await auth.authenticate()
+if let authenticatedLogin = authenticatedLogin {
+    // Process special case
+    ...
+}
+```
 
 ### GitHub
 
