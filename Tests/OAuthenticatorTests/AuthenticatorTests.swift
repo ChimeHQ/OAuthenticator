@@ -257,7 +257,7 @@ final class AuthenticatorTests: XCTestCase {
 	}
 
     @MainActor
-    func testManualAuthenticationWithResultCallback() async throws {
+    func testManualAuthenticationWithSuccessResult() async throws {
         let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
             return URL(string: "my://auth?client_id=\(creds.clientId)")!
         }
@@ -281,12 +281,13 @@ final class AuthenticatorTests: XCTestCase {
         
         // This is the callback to obtain authentication results
         var authenticatedLogin: Login?
-        let authenticationResultCallback: Authenticator.AuthenticationResult = { login, error in
-            if error != nil {
-                authenticatedLogin = nil
-                return
+        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { result in
+            switch result {
+                case .failure(_):
+                     XCTFail()
+                case .success(let login):
+                    authenticatedLogin = login
             }
-            authenticatedLogin = login
         }
         
         // Configure Authenticator with result callback
@@ -294,7 +295,7 @@ final class AuthenticatorTests: XCTestCase {
                                                  tokenHandling: tokenHandling,
                                                  mode: .manualOnly,
                                                  userAuthenticator: mockUserAuthenticator,
-                                                 authenticationResult: authenticationResultCallback)
+                                                 authenticationStatusHandler: authenticationCallback)
 
         let loadExp = expectation(description: "load url")
         let mockLoader: URLResponseProvider = { request in
@@ -309,11 +310,66 @@ final class AuthenticatorTests: XCTestCase {
         
         // Ensure our authenticatedLogin objet is available and contains the proper Token
         XCTAssertNotNil(authenticatedLogin)
-        XCTAssertEqual(authenticatedLogin?.accessToken.value, "TOKEN")
+        XCTAssertEqual(authenticatedLogin!, Login(token:"TOKEN"))
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
         
         await compatFulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
+    }
+
+    // Test AuthenticationResultHandler with a failed UserAuthenticator
+    @MainActor
+    func testManualAuthenticationWithFailedResult() async throws {
+        let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
+            return URL(string: "my://auth?client_id=\(creds.clientId)")!
+        }
+
+        let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
+            XCTAssertEqual(url, URL(string: "my://login")!)
+
+            return Login(token: "TOKEN")
+        }
+
+        let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
+                                          loginProvider: loginProvider,
+                                          responseStatusProvider: TokenHandling.allResponsesValid)
+
+        // This is the callback to obtain authentication results
+        var authenticatedLogin: Login?
+        let failureAuth = expectation(description: "auth failure")
+        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { result in
+            switch result {
+                case .failure(_):
+                    failureAuth.fulfill()
+                    authenticatedLogin = nil
+                case .success(_):
+                    XCTFail()
+            }
+        }
+        
+        // Configure Authenticator with result callback
+        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
+                                                 tokenHandling: tokenHandling,
+                                                 mode: .manualOnly,
+                                                 userAuthenticator: Authenticator.failingUserAuthenticator,
+                                                 authenticationStatusHandler: authenticationCallback)
+        
+        let auth = Authenticator(config: config, urlLoader: nil)
+        do {
+            // Explicitly authenticate and grab Login information after
+            try await auth.authenticate()
+            
+            // Ensure our authenticatedLogin objet is *not* available
+            XCTAssertNil(authenticatedLogin)
+        }
+        catch let error as AuthenticatorError {
+            XCTAssertEqual(error, AuthenticatorError.failingAuthenticatorUsed)
+        }
+        catch {
+            throw error
+        }
+
+        await compatFulfillment(of: [failureAuth], timeout: 1.0, enforceOrder: true)
     }
 
 	@MainActor
