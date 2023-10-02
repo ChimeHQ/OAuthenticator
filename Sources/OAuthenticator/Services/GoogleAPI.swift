@@ -49,6 +49,11 @@ public struct GoogleAPI {
                 login.refreshToken = .init(value: refreshToken)
             }
             
+            // Set the authorized scopes from the OAuthResponse if present
+            if !self.scope.isEmpty {
+                login.scopes = self.scope
+            }
+            
             return login
 		}
 	}
@@ -90,19 +95,22 @@ public struct GoogleAPI {
     /// The `code` is exchanged for an access / refresh token pair using the granted scope in part 1
 	static func authenticationRequest(url: URL, appCredentials: AppCredentials) throws -> URLRequest {
 		let code = try url.authorizationCode
-        let grantedScope = try url.grantedScope
 
         // It's possible the user will decide to grant less scopes than requested by the app.
-        // We should have a mechanism to tell us which scopes were authorized and decide if we
-        // can continue forward or not.
+        // The actual granted scopes will be recorded in the Login object upon code exchange...
+        let grantedScope = try url.grantedScope
+
+        /* -- This is no longer necessary but kept as a reference --
         let grantedScopeItems = grantedScope.components(separatedBy: " ")
         if appCredentials.scopes.count > grantedScopeItems.count {
-            // For now, just log that less scope was authorized
+            // Here we just
             os_log(.info, "[Authentication] Granted scopes less than requested scopes")
         }
-
+        */
+        
         // Regardless if we want to move forward, we need to supply the granted scopes.
         // If we don't, the tokens will not be issued and an error will occur
+        // The application can then later inspect the Login object and decide how to handle a reduce OAuth scope
         var urlBuilder = URLComponents()
 		urlBuilder.scheme = GoogleAPI.scheme
         urlBuilder.host = GoogleAPI.tokenHost
@@ -138,7 +146,6 @@ public struct GoogleAPI {
 			let (data, _) = try await urlLoader(request)
 
             do {
-                
                 let jsonString = String(data: data, encoding: .utf8) ?? ""
                 os_log(.debug, "%s", jsonString)
                 
