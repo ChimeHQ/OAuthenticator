@@ -1,5 +1,4 @@
 [![Build Status][build status badge]][build status]
-[![License][license badge]][license]
 [![Platforms][platforms badge]][platforms]
 [![Documentation][documentation badge]][documentation]
 
@@ -222,20 +221,16 @@ let (data, response) = try await authenticator.response(for: request)
 
 ## Contributing and Collaboration
 
+I'd love to hear from you! Get in touch via an issue or pull request.
+
 I prefer collaboration, and would love to find ways to work together if you have a similar project.
 
 I prefer indentation with tabs for improved accessibility. But, I'd rather you use the system you want and make a PR than hesitate because of whitespace.
-
-## Suggestions and Feedback
-
-I'd love to hear from you! Get in touch via [mastodon](https://mastodon.social/@mattiem), an issue, or a pull request.
 
 By participating in this project you agree to abide by the [Contributor Code of Conduct](CODE_OF_CONDUCT.md).
 
 [build status]: https://github.com/ChimeHQ/OAuthenticator/actions
 [build status badge]: https://github.com/ChimeHQ/OAuthenticator/workflows/CI/badge.svg
-[license]: https://opensource.org/licenses/BSD-3-Clause
-[license badge]: https://img.shields.io/github/license/ChimeHQ/OAuthenticator
 [platforms]: https://swiftpackageindex.com/ChimeHQ/OAuthenticator
 [platforms badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FChimeHQ%2FOAuthenticator%2Fbadge%3Ftype%3Dplatforms
 [documentation]: https://swiftpackageindex.com/ChimeHQ/OAuthenticator/main/documentation
