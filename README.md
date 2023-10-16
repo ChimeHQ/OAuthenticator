@@ -22,6 +22,16 @@ There's also built-in support for services to streamline integration:
 
 If you'd like to contribute a similar thing for another service, please open a PR!
 
+## Integration
+
+Swift Package Manager:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/ChimeHQ/OAuthenticator", from: "0.3.0")
+]
+```
+
 ## Usage
 
 The main type is the `Authenticator`. It can execute a `URLRequest` in a similar fashion to `URLSession`, but will handle all authentication requirements and tack on the needed `Authorization` header. Its behavior is controlled via `Authenticator.Configuration` and `URLResponseProvider`. By default, the `URLResponseProvider` will be a private `URLSession`, but you can customize this if needed.
