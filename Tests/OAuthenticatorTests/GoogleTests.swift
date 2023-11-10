@@ -44,8 +44,12 @@ final class GoogleTests: XCTestCase {
         
         let creds = AppCredentials(clientId: "client_id", clientPassword: "client_pwd", scopes: ["scope1", "scope2"], callbackURL: callback!)
         let tokenHandling = GoogleAPI.googleAPITokenHandling(with: googleParameters)
-        let config = Authenticator.Configuration(appCredentials: creds, tokenHandling: tokenHandling)
-        
+        let config = Authenticator.Configuration(
+            appCredentials: creds,
+            tokenHandling: tokenHandling,
+            userAuthenticator: Authenticator.failingUserAuthenticator
+        )
+
         // Validate URL is properly constructed
         let googleURLProvider = try config.tokenHandling.authorizationURLProvider(creds)
         
@@ -72,8 +76,12 @@ final class GoogleTests: XCTestCase {
 
         let creds = AppCredentials(clientId: "client_id", clientPassword: "client_pwd", scopes: ["scope1", "scope2"], callbackURL: callback!)
         let tokenHandling = GoogleAPI.googleAPITokenHandling(with: googleParameters)
-        let config = Authenticator.Configuration(appCredentials: creds, tokenHandling: tokenHandling)
-        
+        let config = Authenticator.Configuration(
+            appCredentials: creds,
+            tokenHandling: tokenHandling,
+            userAuthenticator: Authenticator.failingUserAuthenticator
+        )
+
         // Validate URL is properly constructed
         let googleURLProvider = try config.tokenHandling.authorizationURLProvider(creds)
         
