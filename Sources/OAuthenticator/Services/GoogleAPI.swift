@@ -64,13 +64,18 @@ public struct GoogleAPI {
         public var includeGrantedScopes: Bool
         public var loginHint: String?
 
+        public init() {
+            self.includeGrantedScopes = true
+            self.loginHint = nil
+        }
+        
         public init(includeGrantedScopes: Bool, loginHint: String?) {
             self.includeGrantedScopes = includeGrantedScopes
             self.loginHint = loginHint
         }
     }
 
-    public static func googleAPITokenHandling(with parameters: GoogleAPIParameters) -> TokenHandling {
+    public static func googleAPITokenHandling(with parameters: GoogleAPIParameters = .init()) -> TokenHandling {
         TokenHandling(authorizationURLProvider: Self.authorizationURLProvider(with: parameters),
                       loginProvider: Self.loginProvider(),
                       refreshProvider: Self.refreshProvider())

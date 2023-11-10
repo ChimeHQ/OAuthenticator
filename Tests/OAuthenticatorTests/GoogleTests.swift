@@ -32,4 +32,60 @@ final class GoogleTests: XCTestCase {
         sleep(5)
         XCTAssert(!login.accessToken.valid)
     }
+    
+    func testSuppliedParameters() throws {
+        let googleParameters = GoogleAPI.GoogleAPIParameters(includeGrantedScopes: true, loginHint: "john@doe.com")
+        
+        XCTAssertNotNil(googleParameters.loginHint)
+        XCTAssertTrue(googleParameters.includeGrantedScopes)
+        
+        let callback = URL(string: "callback://google_api")
+        XCTAssertNotNil(callback)
+        
+        let creds = AppCredentials(clientId: "client_id", clientPassword: "client_pwd", scopes: ["scope1", "scope2"], callbackURL: callback!)
+        let tokenHandling = GoogleAPI.googleAPITokenHandling(with: googleParameters)
+        let config = Authenticator.Configuration(appCredentials: creds, tokenHandling: tokenHandling)
+        
+        // Validate URL is properly constructed
+        let googleURLProvider = try config.tokenHandling.authorizationURLProvider(creds)
+        
+        let urlComponent = URLComponents(url: googleURLProvider, resolvingAgainstBaseURL: true)
+        XCTAssertNotNil(urlComponent)
+        XCTAssertEqual(urlComponent!.scheme, GoogleAPI.scheme)
+        
+        // Validate query items inclusion and value
+        XCTAssertNotNil(urlComponent!.queryItems)
+        XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.name == GoogleAPI.includeGrantedScopeKey }))
+        XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.name == GoogleAPI.loginHint }))
+        XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.value == String(true) }))
+        XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.value == "john@doe.com" }))
+    }
+    
+    func testDefaultParameters() throws {
+        let googleParameters = GoogleAPI.GoogleAPIParameters()
+        
+        XCTAssertNil(googleParameters.loginHint)
+        XCTAssertTrue(googleParameters.includeGrantedScopes)
+        
+        let callback = URL(string: "callback://google_api")
+        XCTAssertNotNil(callback)
+
+        let creds = AppCredentials(clientId: "client_id", clientPassword: "client_pwd", scopes: ["scope1", "scope2"], callbackURL: callback!)
+        let tokenHandling = GoogleAPI.googleAPITokenHandling(with: googleParameters)
+        let config = Authenticator.Configuration(appCredentials: creds, tokenHandling: tokenHandling)
+        
+        // Validate URL is properly constructed
+        let googleURLProvider = try config.tokenHandling.authorizationURLProvider(creds)
+        
+        let urlComponent = URLComponents(url: googleURLProvider, resolvingAgainstBaseURL: true)
+        XCTAssertNotNil(urlComponent)
+        XCTAssertEqual(urlComponent!.scheme, GoogleAPI.scheme)
+
+        // Validate query items inclusion and value
+        XCTAssertNotNil(urlComponent!.queryItems)
+        XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.name == GoogleAPI.includeGrantedScopeKey }))
+        XCTAssertFalse(urlComponent!.queryItems!.contains(where: { $0.name == GoogleAPI.loginHint }))
+        XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.value == String(true) }))
+    }
+
 }
