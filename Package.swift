@@ -15,7 +15,10 @@ let package = Package(
 	dependencies: [
 	],
 	targets: [
-		.target(name: "OAuthenticator", dependencies: [], swiftSettings: settings),
+		.target(name: "OAuthenticator",
+				dependencies: [],
+				resources: [.process("PrivacyInfo.xcprivacy")],
+				swiftSettings: settings),
 		.testTarget(name: "OAuthenticatorTests", dependencies: ["OAuthenticator"], swiftSettings: settings),
 	]
 )
