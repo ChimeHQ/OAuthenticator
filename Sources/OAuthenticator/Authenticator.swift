@@ -18,8 +18,8 @@ public enum AuthenticatorError: Error {
 }
 
 /// Manage state required to executed authenticated URLRequests.
-public final class Authenticator {
-	public typealias UserAuthenticator = (URL, String) async throws -> URL
+public actor Authenticator {
+	public typealias UserAuthenticator = @Sendable (URL, String) async throws -> URL
     public typealias AuthenticationStatusHandler = (Result<Login, AuthenticatorError>) -> Void
     
 	/// A `UserAuthenticator` that always fails. Useful as a placeholder
@@ -60,7 +60,10 @@ public final class Authenticator {
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
 			self.mode = mode
-			self.userAuthenticator = ASWebAuthenticationSession.userAuthenticator
+			// It *should* be possible to use just a reference to
+			// ASWebAuthenticationSession.userAuthenticator directly here
+			// with GlobalActorIsolatedTypesUsability, but it isn't working
+			self.userAuthenticator = { try await ASWebAuthenticationSession.userAuthenticator(url: $0, scheme: $1) }
             self.authenticationStatusHandler = authenticationStatusHandler
 		}
 
@@ -92,6 +95,7 @@ public final class Authenticator {
 	}
 
 	/// A default `URLSession`-backed `URLResponseProvider`.
+	@available(*, deprecated, message: "Please move to URLSession.defaultProvider")
 	@MainActor
 	public static let defaultResponseProvider: URLResponseProvider = {
 		let session = URLSession(configuration: .default)
@@ -151,7 +155,6 @@ public final class Authenticator {
 	}
 
 	/// Manually perform user authentication, if required.
-	@MainActor
 	public func authenticate(with userAuthenticator: UserAuthenticator? = nil) async throws {
 		let _ = try await loginTaskResult(manual: true, userAuthenticator: userAuthenticator ?? config.userAuthenticator)
 	}

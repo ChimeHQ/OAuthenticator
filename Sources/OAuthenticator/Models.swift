@@ -4,7 +4,7 @@ import Foundation
 ///
 /// This is used to abstract the actual networking system from the underlying authentication
 /// mechanism.
-public typealias URLResponseProvider = (URLRequest) async throws -> (Data, URLResponse)
+public typealias URLResponseProvider = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
 public struct Token: Codable, Hashable, Sendable {
 	public let value: String
