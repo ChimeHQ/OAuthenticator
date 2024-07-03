@@ -27,5 +27,6 @@ jobs:
           - "platform=tvOS Simulator,name=Apple TV"
 
     steps:
+      - uses: actions/checkout@v4
       - name: Test platform ${{ matrix.destination }}
         run: set -o pipefail && xcodebuild -scheme OAuthenticator -destination "${{ matrix.destination }}" test | xcbeautify
