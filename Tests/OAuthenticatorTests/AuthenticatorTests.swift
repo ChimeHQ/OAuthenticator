@@ -49,16 +49,6 @@ final class AuthenticatorTests: XCTestCase {
 		throw AuthenticatorTestsError.disabled
 	}
 
-	private func compatFulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool) async {
-#if compiler(>=5.8)
-		await fulfillment(of: expectations, timeout: timeout, enforceOrder: enforceOrder)
-#else
-		await Task {
-			wait(for: expectations, timeout: timeout, enforceOrder: enforceOrder)
-		}.value
-#endif
-	}
-
 	@MainActor
 	func testInitialLogin() async throws {
 		let authedLoadExp = expectation(description: "load url")
@@ -115,7 +105,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await compatFulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	@MainActor
@@ -151,7 +141,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await compatFulfillment(of: [retrieveTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(of: [retrieveTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	@MainActor
@@ -203,7 +193,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await compatFulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	@MainActor
@@ -258,7 +248,7 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		
-		await compatFulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 
     @MainActor
@@ -319,7 +309,7 @@ final class AuthenticatorTests: XCTestCase {
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
         
-        await compatFulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
     }
 
     // Test AuthenticationResultHandler with a failed UserAuthenticator
@@ -374,7 +364,7 @@ final class AuthenticatorTests: XCTestCase {
             throw error
         }
 
-        await compatFulfillment(of: [failureAuth], timeout: 1.0, enforceOrder: true)
+		await fulfillment(of: [failureAuth], timeout: 1.0, enforceOrder: true)
     }
 
 	@MainActor
