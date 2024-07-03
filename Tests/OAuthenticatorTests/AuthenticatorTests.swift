@@ -480,7 +480,7 @@ final class AuthenticatorTests: XCTestCase {
         XCTAssertTrue(savedLogins.isEmpty, "Login storage should not be updated after first request")
 
         // Let the token expire
-		try await Task.sleep(for: .seconds(1))
+		try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		let sentRequestsTwo = await requestContainer.sentRequests
