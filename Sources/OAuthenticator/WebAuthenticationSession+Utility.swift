@@ -1,5 +1,9 @@
+// this API is problematic right now
+#if compiler(<6.0)
+
 import AuthenticationServices
 import SwiftUI
+
 
 @available(macOS 13.3, iOS 16.4, watchOS 9.4, tvOS 16.4, *)
 extension WebAuthenticationSession {
@@ -9,3 +13,4 @@ extension WebAuthenticationSession {
 		}
 	}
 }
+#endif

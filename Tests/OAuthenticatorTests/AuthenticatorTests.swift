@@ -27,10 +27,12 @@ final class MockURLResponseProvider: @unchecked Sendable {
 }
 
 final class AuthenticatorTests: XCTestCase {
-	private static let mockCredentials = AppCredentials(clientId: "abc",
-														clientPassword: "def",
-														scopes: ["123"],
-														callbackURL: URL(string: "my://callback")!)
+	private static let mockCredentials = AppCredentials(
+		clientId: "abc",
+		clientPassword: "def",
+		scopes: ["123"],
+		callbackURL: URL(string: "my://callback")!
+	)
 
 	private static func disabledUserAuthenticator(url: URL, user: String) throws -> URL {
 		throw AuthenticatorTestsError.disabled
@@ -96,10 +98,21 @@ final class AuthenticatorTests: XCTestCase {
 			storeTokenExp.fulfill()
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: mockUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+//			loginStorage: nil,
+			tokenHandling: tokenHandling,
+//			tokenHandling: TokenHandling(
+//				authorizationURLProvider: { _ in
+//					throw AuthenticatorTestsError.disabled
+//				},
+//				loginProvider: { _, _, _, _ in
+//					throw AuthenticatorTestsError.disabled
+//				}
+//			),
+			userAuthenticator: mockUserAuthenticator
+		)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
