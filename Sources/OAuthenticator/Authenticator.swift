@@ -25,7 +25,7 @@ public final class Authenticator {
 	/// A `UserAuthenticator` that always fails. Useful as a placeholder
 	/// for testing and for doing manual authentication with an external
 	/// instance not available at configuration-creation time.
-	public static nonisolated let failingUserAuthenticator: UserAuthenticator = { _, _ in
+	public static func failingUserAuthenticator(_ url: URL, _ user: String) throws -> URL {
 		throw AuthenticatorError.failingAuthenticatorUsed
 	}
 
@@ -92,6 +92,7 @@ public final class Authenticator {
 	}
 
 	/// A default `URLSession`-backed `URLResponseProvider`.
+	@MainActor
 	public static let defaultResponseProvider: URLResponseProvider = {
 		let session = URLSession(configuration: .default)
 
