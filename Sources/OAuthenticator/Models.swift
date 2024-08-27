@@ -74,8 +74,8 @@ public struct AppCredentials: Hashable, Sendable {
 }
 
 public struct LoginStorage {
-	public typealias RetrieveLogin = () async throws -> Login?
-	public typealias StoreLogin = (Login) async throws -> Void
+	public typealias RetrieveLogin = @Sendable () async throws -> Login?
+	public typealias StoreLogin = @Sendable (Login) async throws -> Void
 
 	public let retrieveLogin: RetrieveLogin
 	public let storeLogin: StoreLogin
@@ -94,10 +94,10 @@ public struct TokenHandling {
 		case refreshOrAuthorize
 	}
 
-	public typealias AuthorizationURLProvider = (AppCredentials) throws -> URL
-	public typealias LoginProvider = (URL, AppCredentials, URL, URLResponseProvider) async throws -> Login
-	public typealias RefreshProvider = (Login, AppCredentials, URLResponseProvider) async throws -> Login
-	public typealias ResponseStatusProvider = ((Data, URLResponse)) throws -> ResponseStatus
+	public typealias AuthorizationURLProvider = @Sendable (AppCredentials) throws -> URL
+	public typealias LoginProvider = @Sendable (URL, AppCredentials, URL, URLResponseProvider) async throws -> Login
+	public typealias RefreshProvider = @Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
+	public typealias ResponseStatusProvider = @Sendable ((Data, URLResponse)) throws -> ResponseStatus
 
 	public let authorizationURLProvider: AuthorizationURLProvider
 	public let loginProvider: LoginProvider
@@ -114,10 +114,12 @@ public struct TokenHandling {
 		self.responseStatusProvider = responseStatusProvider
 	}
 
+	@Sendable
 	public static func allResponsesValid(result: (Data, URLResponse)) throws -> ResponseStatus {
 		return .valid
 	}
 
+	@Sendable
 	public static func refreshOrAuthorizeWhenUnauthorized(result: (Data, URLResponse)) throws -> ResponseStatus {
 		guard let response = result.1 as? HTTPURLResponse else {
 			throw AuthenticatorError.httpResponseExpected

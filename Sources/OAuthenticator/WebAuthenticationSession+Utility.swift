@@ -1,6 +1,3 @@
-// this API is problematic right now
-#if compiler(<6.0)
-
 import AuthenticationServices
 import SwiftUI
 
@@ -13,4 +10,3 @@ extension WebAuthenticationSession {
 		}
 	}
 }
-#endif

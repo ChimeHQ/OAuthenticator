@@ -34,14 +34,17 @@ final class AuthenticatorTests: XCTestCase {
 		callbackURL: URL(string: "my://callback")!
 	)
 
+	@Sendable
 	private static func disabledUserAuthenticator(url: URL, user: String) throws -> URL {
 		throw AuthenticatorTestsError.disabled
 	}
 
+	@Sendable
 	private static func disabledAuthorizationURLProvider(credentials: AppCredentials) throws -> URL {
 		throw AuthenticatorTestsError.disabled
 	}
 
+	@Sendable
 	private static func disabledLoginProvider(
 		url: URL,
 		credentials: AppCredentials,
@@ -264,7 +267,6 @@ final class AuthenticatorTests: XCTestCase {
 		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 
-    @MainActor
     func testManualAuthenticationWithSuccessResult() async throws {
         let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
             return URL(string: "my://auth?client_id=\(creds.clientId)")!
@@ -326,7 +328,6 @@ final class AuthenticatorTests: XCTestCase {
     }
 
     // Test AuthenticationResultHandler with a failed UserAuthenticator
-    @MainActor
     func testManualAuthenticationWithFailedResult() async throws {
         let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
             return URL(string: "my://auth?client_id=\(creds.clientId)")!
@@ -380,7 +381,6 @@ final class AuthenticatorTests: XCTestCase {
 		await fulfillment(of: [failureAuth], timeout: 1.0, enforceOrder: true)
     }
 
-	@MainActor
 	func testUnauthorizedRequestRefreshes() async throws {
 		let requestedURL = URL(string: "https://example.com")!
 
@@ -431,7 +431,6 @@ final class AuthenticatorTests: XCTestCase {
 		}
 	}
 
-    @MainActor
     func testTokenExpiredAfterUseRefresh() async throws {
 		let requestContainer = RequestContainer()
 
