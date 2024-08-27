@@ -25,6 +25,7 @@ public actor Authenticator {
 	/// A `UserAuthenticator` that always fails. Useful as a placeholder
 	/// for testing and for doing manual authentication with an external
 	/// instance not available at configuration-creation time.
+	@Sendable
 	public static func failingUserAuthenticator(_ url: URL, _ user: String) throws -> URL {
 		throw AuthenticatorError.failingAuthenticatorUsed
 	}
