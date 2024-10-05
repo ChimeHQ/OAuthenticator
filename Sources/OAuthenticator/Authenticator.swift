@@ -285,7 +285,7 @@ extension Authenticator {
 }
 
 extension Authenticator {
-	public var responseProvider: URLResponseProvider {
+	public nonisolated var responseProvider: URLResponseProvider {
 		{ try await self.response(for: $0) }
 	}
 }
