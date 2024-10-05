@@ -431,17 +431,19 @@ final class AuthenticatorTests: XCTestCase {
 		}
 	}
 
+	@MainActor
     func testTokenExpiredAfterUseRefresh() async throws {
-		let requestContainer = RequestContainer()
+		var sentRequests: [URLRequest] = []
 
-        let mockLoader: URLResponseProvider = { request in
-			await requestContainer.addRequest(request)
+        let mockLoader: URLResponseProvider = { @MainActor request in
+			sentRequests.append(request)
             return ("hello".data(using: .utf8)!, URLResponse())
         }
 
         var refreshedLogins: [Login] = []
-        let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
-            refreshedLogins.append(login)
+        let refreshProvider: TokenHandling.RefreshProvider = { @MainActor login, _, _ in
+			refreshedLogins.append(login)
+
             return Login(token: "REFRESHED")
         }
 
@@ -458,10 +460,11 @@ final class AuthenticatorTests: XCTestCase {
         )
         var loadLoginCount = 0
         var savedLogins: [Login] = []
-        let storage = LoginStorage {
-            loadLoginCount += 1
+		let storage = LoginStorage { @MainActor in
+			loadLoginCount += 1
+
             return storedLogin
-        } storeLogin: { login in
+        } storeLogin: { @MainActor login in
             savedLogins.append(login)
         }
 
@@ -473,7 +476,7 @@ final class AuthenticatorTests: XCTestCase {
         let auth = Authenticator(config: config, urlLoader: mockLoader)
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		let sentRequestsOne = await requestContainer.sentRequests
+		let sentRequestsOne = sentRequests
 
         XCTAssertEqual(sentRequestsOne.count, 1, "First request should be sent")
         XCTAssertEqual(sentRequestsOne.first?.value(forHTTPHeaderField: "Authorization"), "Bearer EXPIRE SOON", "Non expired token should be used for first request")
@@ -485,7 +488,7 @@ final class AuthenticatorTests: XCTestCase {
 		try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		let sentRequestsTwo = await requestContainer.sentRequests
+		let sentRequestsTwo = sentRequests
 
         XCTAssertEqual(refreshedLogins.count, 1, "Token should be refreshed")
         XCTAssertEqual(refreshedLogins.first?.accessToken.value, "EXPIRE SOON", "Expired token should be passed to refresh call")
@@ -497,7 +500,7 @@ final class AuthenticatorTests: XCTestCase {
         XCTAssertEqual(savedLogins.first?.accessToken.value, "REFRESHED", "Refreshed token should be saved to storage")
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		let sentRequestsThree = await requestContainer.sentRequests
+		let sentRequestsThree = sentRequests
 
         XCTAssertEqual(refreshedLogins.count, 1, "No additional refreshes should happen")
         XCTAssertEqual(loadLoginCount, 2, "No additional login loads should happen")
