@@ -101,7 +101,7 @@ final class AuthenticatorTests: XCTestCase {
 			storeTokenExp.fulfill()
 		}
 
-		let config = Authenticator.Configuration(
+		let config = Authenticator<Data>.Configuration(
 			appCredentials: Self.mockCredentials,
 			loginStorage: storage,
 //			loginStorage: nil,
@@ -148,10 +148,10 @@ final class AuthenticatorTests: XCTestCase {
 			XCTFail()
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   loginStorage: storage,
+													   tokenHandling: tokenHandling,
+													   userAuthenticator: Self.disabledUserAuthenticator)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
@@ -200,10 +200,10 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   loginStorage: storage,
+													   tokenHandling: tokenHandling,
+													   userAuthenticator: Self.disabledUserAuthenticator)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
@@ -235,10 +235,10 @@ final class AuthenticatorTests: XCTestCase {
 			return URL(string: "my://login")!
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 tokenHandling: tokenHandling,
-												 mode: .manualOnly,
-												 userAuthenticator: mockUserAuthenticator)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   tokenHandling: tokenHandling,
+													   mode: .manualOnly,
+													   userAuthenticator: mockUserAuthenticator)
 
 		let loadExp = expectation(description: "load url")
 		let mockLoader: URLResponseProvider = { request in
@@ -301,11 +301,11 @@ final class AuthenticatorTests: XCTestCase {
         }
         
         // Configure Authenticator with result callback
-        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-                                                 tokenHandling: tokenHandling,
-                                                 mode: .manualOnly,
-                                                 userAuthenticator: mockUserAuthenticator,
-                                                 authenticationStatusHandler: authenticationCallback)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   tokenHandling: tokenHandling,
+													   mode: .manualOnly,
+													   userAuthenticator: mockUserAuthenticator,
+													   authenticationStatusHandler: authenticationCallback)
 
         let loadExp = expectation(description: "load url")
         let mockLoader: URLResponseProvider = { request in
@@ -357,11 +357,11 @@ final class AuthenticatorTests: XCTestCase {
         }
         
         // Configure Authenticator with result callback
-        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-                                                 tokenHandling: tokenHandling,
-                                                 mode: .manualOnly,
-                                                 userAuthenticator: Authenticator.failingUserAuthenticator,
-                                                 authenticationStatusHandler: authenticationCallback)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   tokenHandling: tokenHandling,
+													   mode: .manualOnly,
+													   userAuthenticator: Authenticator<Data>.failingUserAuthenticator,
+													   authenticationStatusHandler: authenticationCallback)
         
         let auth = Authenticator(config: config, urlLoader: nil)
         do {
@@ -408,10 +408,10 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   loginStorage: storage,
+													   tokenHandling: tokenHandling,
+													   userAuthenticator: Self.disabledUserAuthenticator)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader.responseProvider)
 
@@ -468,10 +468,10 @@ final class AuthenticatorTests: XCTestCase {
             savedLogins.append(login)
         }
 
-        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-                                                 loginStorage: storage,
-                                                 tokenHandling: tokenHandling,
-                                                 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator<Data>.Configuration(appCredentials: Self.mockCredentials,
+													   loginStorage: storage,
+													   tokenHandling: tokenHandling,
+													   userAuthenticator: Self.disabledUserAuthenticator)
 
         let auth = Authenticator(config: config, urlLoader: mockLoader)
 
