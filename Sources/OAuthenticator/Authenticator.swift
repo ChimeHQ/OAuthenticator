@@ -162,7 +162,7 @@ public actor Authenticator<UserDataType: Sendable> {
 }
 
 /// A default `URLSession`-backed `URLResponseProvider`.
-	@available(*, deprecated, message: "Please move to URLSession.defaultProvider")
+@available(*, deprecated, message: "Please move to URLSession.defaultProvider")
 @MainActor
 public let defaultAuthenticatorResponseProvider: URLResponseProvider = {
 	let session = URLSession(configuration: .default)
