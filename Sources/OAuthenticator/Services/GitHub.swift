@@ -124,6 +124,7 @@ public enum GitHub {
 		return request
 	}
 
+	@Sendable
 	static func gitHubAppLoginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
 		let request = try authenticationRequest(with: url, appCredentials: credentials)
 
@@ -134,6 +135,7 @@ public enum GitHub {
 		return response.login
 	}
 
+	@Sendable
 	static func OAuthAppLoginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
 		let request = try authenticationRequest(with: url, appCredentials: credentials)
 
@@ -144,6 +146,7 @@ public enum GitHub {
 		return response.login
 	}
 
+	@Sendable
 	static func refreshProvider(login: Login, credentials: AppCredentials, urlLoader: URLResponseProvider) async throws -> Login {
 		// TODO: GitHub Apps actually do support refresh
 		throw AuthenticatorError.refreshUnsupported

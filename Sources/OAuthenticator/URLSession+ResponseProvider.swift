@@ -24,7 +24,7 @@ extension URLSession {
 		}
 	}
 
-	static var defaultProvider: URLResponseProvider {
+	public static var defaultProvider: URLResponseProvider {
 		let session = URLSession(configuration: .default)
 
 		return session.responseProvider

@@ -29,6 +29,7 @@ let package = Package(
 
 let swiftSettings: [SwiftSetting] = [
 	.enableExperimentalFeature("StrictConcurrency"),
+	.enableUpcomingFeature("GlobalActorIsolatedTypesUsability"),
 ]
 
 for target in package.targets {
