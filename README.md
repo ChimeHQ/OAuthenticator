@@ -137,7 +137,8 @@ let userTokenParameters = Mastodon.UserTokenParameters(
     host: "mastodon.social",
     clientName: "MyMastodonApp",
     redirectURI: "myMastodonApp://mastodon/oauth",
-    scopes: ["read", "write", "follow"])
+    scopes: ["read", "write", "follow"]
+)
 
 // The first thing we will need to do is to register an application, in order to be able to generate access tokens later.
 // These values will be used to generate access tokens, so they should be cached for later use
@@ -146,17 +147,21 @@ let registrationData = try await Mastodon.register(with: userTokenParameters) { 
 }
 
 // Now that we have an application, let’s obtain an access token that will authenticate our requests as that client application.
-guard let redirectURI = registrationData.redirect_uri, let callbackURL = URL(string: redirectURI) else {
+guard let redirectURI = registrationData.redirectURI, let callbackURL = URL(string: redirectURI) else {
     throw AuthenticatorError.missingRedirectURI
 }
 
-let appCreds = AppCredentials(clientId: registrationData.client_id,
-                              clientPassword: registrationData.client_secret,
-                              scopes: userTokenParameters.scopes,
-                              callbackURL: callbackURL)
+let appCreds = AppCredentials(
+    clientId: registrationData.clientID,
+    clientPassword: registrationData.clientSecret,
+    scopes: userTokenParameters.scopes,
+    callbackURL: callbackURL
+)
 
-let config = Authenticator.Configuration(appCredentials: appCreds,
-                                         tokenHandling: Mastodon.tokenHandling(with: userTokenParameters))
+let config = Authenticator.Configuration(
+    appCredentials: appCreds,
+    tokenHandling: Mastodon.tokenHandling(with: userTokenParameters)
+)
 
 let authenticator = Authenticator(config: config)
 
