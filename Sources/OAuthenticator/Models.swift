@@ -45,7 +45,7 @@ public struct Login: Codable, Hashable, Sendable {
 	}
 }
 
-public struct AppCredentials: Hashable, Sendable {
+public struct AppCredentials: Codable, Hashable, Sendable {
 	public var clientId: String
 	public var clientPassword: String
 	public var scopes: [String]
