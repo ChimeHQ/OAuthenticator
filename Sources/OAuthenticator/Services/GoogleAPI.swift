@@ -85,7 +85,7 @@ public struct GoogleAPI {
     ///
     /// Will request an authentication `code` based on the acceptance by the user
     public static func authorizationURLProvider(with parameters: GoogleAPIParameters) -> TokenHandling.AuthorizationURLProvider {
-		return { credentials in
+		return { credentials, _ in
 			var urlBuilder = URLComponents()
 
 			urlBuilder.scheme = GoogleAPI.scheme

@@ -94,7 +94,13 @@ public struct TokenHandling {
 		case refreshOrAuthorize
 	}
 
-	public typealias AuthorizationURLProvider = @Sendable (AppCredentials) throws -> URL
+	public typealias AuthorizationURLProvider = @Sendable (AppCredentials, URLResponseProvider) async throws -> URL
+	/// A function that processes the results of an authentication operation
+	///
+	/// URL: The result of the Configuration.UserAuthenticator function
+	/// AppCredentials: The credentials from Configuration.appCredentials
+	/// URL: the authenticated URL from the OAuth service
+	/// URLResponseProvider: the authenticator's provider
 	public typealias LoginProvider = @Sendable (URL, AppCredentials, URL, URLResponseProvider) async throws -> Login
 	public typealias RefreshProvider = @Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
 	public typealias ResponseStatusProvider = @Sendable ((Data, URLResponse)) throws -> ResponseStatus

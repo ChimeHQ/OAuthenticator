@@ -80,7 +80,7 @@ public struct Mastodon {
 	}
 
 	static func authorizationURLProvider(with parameters: UserTokenParameters) -> TokenHandling.AuthorizationURLProvider {
-		return { credentials in
+		return { credentials, _ in
 			var urlBuilder = URLComponents()
 
 			urlBuilder.scheme = Mastodon.scheme

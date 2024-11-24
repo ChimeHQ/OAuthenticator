@@ -252,7 +252,7 @@ extension Authenticator {
 			throw AuthenticatorError.manualAuthenticationRequired
 		}
 
-		let codeURL = try config.tokenHandling.authorizationURLProvider(config.appCredentials)
+		let codeURL = try await config.tokenHandling.authorizationURLProvider(config.appCredentials, responseProvider)
 		let scheme = try config.appCredentials.callbackURLScheme
 
 		let	url = try await userAuthenticator(codeURL, scheme)
