@@ -1,230 +1,129 @@
 import Foundation
 
-import CryptoKit
-
-struct PKCE: Hashable, Sendable {
-	let verifier: String
-	let challenge: String
-	let method: String
-	
-	init() {
-		self.method = "S256"
-		self.verifier = UUID().uuidString
-		self.challenge = Self.computeHash(verifier)
-	}
-	
-	static func computeHash(_ value: String) -> String {
-		let digest = SHA256.hash(data: Data(value.utf8))
-
-		return digest.map { String(format: "%02X", $0) }.joined()
-	}
-	
-	func validate(_ value: String) -> Bool {
-		Self.computeHash(value) == verifier
-	}
-}
-
 /// Find the spec here: https://atproto.com/specs/oauth
 public enum Bluesky {
-	public struct ServerMetadata: Codable, Hashable, Sendable {
-		public let issuer: String
-		public let authorizationEndpoint: String
-		public let tokenEndpoint: String
-		public let responseTypesSupported: [String]
-		public let grantTypesSupported: [String]
-		public let codeChallengeMethodsSupported: [String]
-		public let tokenEndpointAuthMethodsSupported: [String]
-		public let tokenEndpointAuthSigningAlgValuesSupported: [String]
-		public let scopesSupported: [String]
-		public let authorizationResponseIssParameterSupported: Bool
-		public let requirePushedAuthorizationRequests: Bool
-		public let pushedAuthorizationRequestEndpoint: String
-		public let dpopSigningAlgValuesSupported: [String]
-		public let requireRequestUriRegistration: Bool
-		public let clientIdMetadataDocumentSupported: Bool
-		
-		enum CodingKeys: String, CodingKey {
-			case issuer
-			case authorizationEndpoint = "authorization_endpoint"
-			case tokenEndpoint = "token_endpoint"
-			case responseTypesSupported = "response_types_supported"
-			case grantTypesSupported = "grant_types_supported"
-			case codeChallengeMethodsSupported = "code_challenge_methods_supported"
-			case tokenEndpointAuthMethodsSupported = "token_endpoint_auth_methods_supported"
-			case tokenEndpointAuthSigningAlgValuesSupported = "token_endpoint_auth_signing_alg_values_supported"
-			case scopesSupported = "scopes_supported"
-			case authorizationResponseIssParameterSupported = "authorization_response_iss_parameter_supported"
-			case requirePushedAuthorizationRequests = "require_pushed_authorization_requests"
-			case pushedAuthorizationRequestEndpoint = "pushed_authorization_request_endpoint"
-			case dpopSigningAlgValuesSupported = "dpop_signing_alg_values_supported"
-			case requireRequestUriRegistration = "require_request_uri_registration"
-			case clientIdMetadataDocumentSupported = "client_id_metadata_document_supported"
+	struct TokenRequest: Hashable, Sendable, Codable {
+		public let code: String
+		public let code_verifier: String
+		public let redirect_uri: String
+		public let grant_type: String
+		public let client_id: String
+
+		public init(code: String, code_verifier: String, redirect_uri: String, grant_type: String, client_id: String) {
+			self.code = code
+			self.code_verifier = code_verifier
+			self.redirect_uri = redirect_uri
+			self.grant_type = grant_type
+			self.client_id = client_id
 		}
-	}
-	
-	public struct ClientConfiguration: Hashable, Sendable {
-		public let clientId: String
-		public let callbackURI: String
-		
-		public init(clientId: String, callbackURI: String) {
-			self.clientId = clientId
-			self.callbackURI = callbackURI
-		}
-	}
-	
-	public struct AuthorizationURLRequest: Codable, Hashable, Sendable {
-		
 	}
 
-	struct PARResponse: Codable, Hashable, Sendable {
-		let request_uri: String
-		let expires_in: Int
-	}
-	
-	public struct AuthorizationURLResponse: Hashable, Sendable {
-		public let requestURI: String
-		public let expiry: Date
-		let nonce: String
-		let pkce: PKCE
-		
-		public func validateState(_ state: String) -> Bool {
-			pkce.validate(state)
+	struct TokenResponse: Hashable, Sendable, Codable {
+		public let access_token: String
+		public let refresh_token: String?
+		public let sub: String
+		public let scope: String
+		public let token_type: String
+		public let expires_in: Int
+
+		public func login(for issuingServer: String) -> Login {
+			Login(
+				accessToken: Token(value: access_token, expiresIn: expires_in),
+				refreshToken: refresh_token.map { Token(value: $0) },
+				scopes: scope,
+				issuingServer: issuingServer
+			)
 		}
 	}
-	
-	public static func serverConfiguration(for host: String, provider: URLResponseProvider) async throws -> ServerMetadata {
-		var components = URLComponents()
-		
-		components.scheme = "https"
-		components.host = host
-		components.path = "/.well-known/oauth-authorization-server"
-		components.queryItems = [
-			URLQueryItem(name: "Accept", value: "application/json")
-		]
-		
-		guard let url = components.url else {
-			throw AuthenticatorError.missingAuthorizationURL
-		}
-		
-		let (data, _) = try await provider(URLRequest(url: url))
-		
-		return try JSONDecoder().decode(ServerMetadata.self, from: data)
-	}
-	
-	public static func pushAuthorizationRequest(clientConfig: ClientConfiguration, hint: String, metadata: ServerMetadata, provider: URLResponseProvider) async throws -> AuthorizationURLResponse {
-		guard let url = URL(string: metadata.pushedAuthorizationRequestEndpoint) else {
-			throw AuthenticatorError.missingAuthorizationURL
-		}
-		
-		let state = UUID().uuidString
-		let pkce = PKCE()
-		
-		var request = URLRequest(url: url)
-		request.httpMethod = "POST"
-		request.setValue("application/json", forHTTPHeaderField: "Accept")
-		request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-		
-		let body = [
-			"client_id=\(clientConfig.clientId)",
-			"state=\(state)",
-			"scopes=atproto",
-			"response_type=code",
-			"redirect_uri=\(clientConfig.callbackURI)",
-			"code_challenge=\(pkce.challenge)",
-			"code_challenge_method=\(pkce.method)",
-			"login_hint=\(hint)",
-		].joined(separator: "&")
-		
-		request.httpBody = Data(body.utf8)
-		
-		let (data, response) = try await provider(request)
-		
-		guard let httpResponse = response as? HTTPURLResponse else {
-			print("data:", String(decoding: data, as: UTF8.self))
-			
-			throw AuthenticatorError.httpResponseExpected
-		}
-		
-		let nonce = httpResponse.value(forHTTPHeaderField: "dpop-nonce") ?? ""
-		
-		let parResponse = try JSONDecoder().decode(PARResponse.self, from: data)
-		
-		return AuthorizationURLResponse(
-			requestURI: parResponse.request_uri,
-			expiry: Date(timeIntervalSinceNow: Double(parResponse.expires_in)),
-			nonce: nonce,
-			pkce: pkce
+
+	public static func tokenHandling(account: String, server: ServerMetadata, jwtGenerator: @escaping DPoPSigner.JWTGenerator) -> TokenHandling {
+		TokenHandling(
+			parConfiguration: PARConfiguration(
+				url: URL(string: server.pushedAuthorizationRequestEndpoint)!,
+				parameters: ["login_hint": account]
+			),
+			authorizationURLProvider: authorizionURLProvider(server: server),
+			loginProvider: loginProvider(server: server),
+			refreshProvider: refreshProvider(server: server),
+			dpopJWTGenerator: jwtGenerator
 		)
 	}
-	
-//	public static func tokenHandling(with server: String) -> TokenHandling {
-//		TokenHandling(
-//			authorizationURLProvider: authorizationURLProvider(with: server),
-//			loginProvider: loginProvider,
-//			refreshProvider: refreshProvider
-//		)
-//	}
-//	
-//	static func authorizationURLProvider(with server: String) -> TokenHandling.AuthorizationURLProvider {
-//		return { credentials, provider in
-//			
-//			var components = URLComponents()
-//			
-//			components.scheme = "https"
-//			components.host = server
-//			components.path = "/.well-known/oauth-authorization-server"
-//			components.queryItems = [
-//				URLQueryItem(name: "Accept", value: "application/json")
-//			]
-//			
-//			guard let url = components.url else {
-//				throw AuthenticatorError.missingAuthorizationURL
-//			}
-//			
-//			let (data, _) = try await provider(URLRequest(url: url))
-//			
-//			let response = try JSONDecoder().decode(AuthorizationServerResponse.self, from: data)
-//			
-//			print(response)
-//			
-////			var urlBuilder = URLComponents()
-////
-////			urlBuilder.scheme = "https"
-////			urlBuilder.host = host
-////			urlBuilder.path = "/login/oauth/authorize"
-////			urlBuilder.queryItems = [
-////				URLQueryItem(name: "client_id", value: credentials.clientId),
-////				URLQueryItem(name: "redirect_uri", value: credentials.callbackURL.absoluteString),
-////				URLQueryItem(name: "scope", value: credentials.scopeString),
-////			]
-////
-////			if let state = parameters.state {
-////				urlBuilder.queryItems?.append(URLQueryItem(name: "state", value: state))
-////			}
-////
-////			guard let url = urlBuilder.url else {
-//				throw AuthenticatorError.missingAuthorizationURL
-////			}
-//
-////			return url
-//		}
-//	}
-//	
-//	@Sendable
-//	static func loginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
-//		throw AuthenticatorError.missingAuthorizationURL
-////		let request = try authenticationRequest(with: url, appCredentials: credentials)
-////
-////		let (data, _) = try await urlLoader(request)
-////
-////		let response = try JSONDecoder().decode(GitHub.AppAuthResponse.self, from: data)
-////
-////		return response.login
-//	}
-//
-//	@Sendable
-//	static func refreshProvider(login: Login, credentials: AppCredentials, urlLoader: URLResponseProvider) async throws -> Login {
-//		// TODO: will have to figure this out
-//		throw AuthenticatorError.refreshUnsupported
-//	}
+
+	private static func authorizionURLProvider(server: ServerMetadata) -> TokenHandling.AuthorizationURLProvider {
+		return { params in
+			var components = URLComponents(string: server.authorizationEndpoint)
+
+			guard let parRequestURI = params.parRequestURI else {
+				throw AuthenticatorError.parRequestURIMissing
+			}
+
+			components?.queryItems = [
+				URLQueryItem(name: "request_uri", value: parRequestURI),
+				URLQueryItem(name: "client_id", value: params.credentials.clientId),
+			]
+
+			guard let url = components?.url else {
+				throw AuthenticatorError.missingAuthorizationURL
+			}
+
+			return url
+		}
+	}
+
+	private static func loginProvider(server: ServerMetadata) -> TokenHandling.LoginProvider {
+		return { params in
+			// decode the params in the redirectURL
+			guard let redirectComponents = URLComponents(url: params.redirectURL, resolvingAgainstBaseURL: false) else {
+				throw AuthenticatorError.missingTokenURL
+			}
+
+			guard
+				let authCode = redirectComponents.queryItems?.first(where: { $0.name == "code" })?.value,
+				let iss = redirectComponents.queryItems?.first(where: { $0.name == "iss" })?.value,
+				let state = redirectComponents.queryItems?.first(where: { $0.name == "state" })?.value
+			else {
+				throw AuthenticatorError.missingAuthorizationCode
+			}
+
+			if state != params.stateToken {
+				throw AuthenticatorError.stateTokenMismatch(state, params.stateToken)
+			}
+
+			// and use them (plus just a little more) to construct the token request
+			guard let tokenURL = URL(string: server.tokenEndpoint) else {
+				throw AuthenticatorError.missingTokenURL
+			}
+
+			let tokenRequest = TokenRequest(
+				code: authCode,
+				code_verifier: params.pcke.verifier,
+				redirect_uri: params.credentials.callbackURL.absoluteString,
+				grant_type: "authorization_code",
+				client_id: params.credentials.clientId // is this field truly necessary?
+			)
+
+			var request = URLRequest(url: tokenURL)
+
+			request.httpMethod = "POST"
+			request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+			request.httpBody = try JSONEncoder().encode(tokenRequest)
+
+			let (data, response) = try await params.responseProvider(request)
+
+			print("data:", String(decoding: data, as: UTF8.self))
+			print("response:", response)
+
+			let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
+
+			guard tokenResponse.token_type == "DPoP" else {
+				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
+			}
+
+			return tokenResponse.login(for: iss)
+		}
+	}
+
+	private static func refreshProvider(server: ServerMetadata) -> TokenHandling.RefreshProvider {
+		{ _, _, _ in throw AuthenticatorError.refreshUnsupported }
+	}
 }

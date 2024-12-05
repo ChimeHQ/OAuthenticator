@@ -74,13 +74,17 @@ public struct Mastodon {
 	}
 
 	public static func tokenHandling(with parameters: UserTokenParameters) -> TokenHandling {
-		TokenHandling(authorizationURLProvider: authorizationURLProvider(with: parameters),
-					  loginProvider: loginProvider(with: parameters),
-					  refreshProvider: refreshProvider(with: parameters))
+		TokenHandling(
+			authorizationURLProvider: authorizationURLProvider(with: parameters),
+			loginProvider: loginProvider(with: parameters),
+			refreshProvider: refreshProvider(with: parameters)
+		)
 	}
 
 	static func authorizationURLProvider(with parameters: UserTokenParameters) -> TokenHandling.AuthorizationURLProvider {
-		return { credentials, _ in
+		return { params in
+			let credentials = params.credentials
+
 			var urlBuilder = URLComponents()
 
 			urlBuilder.scheme = Mastodon.scheme
@@ -130,11 +134,11 @@ public struct Mastodon {
 		return request
 	}
 
-	static func loginProvider(with parameters: UserTokenParameters) -> TokenHandling.LoginProvider {
-		return { url, appCredentials, tokenURL, urlLoader in
-			let request = try authenticationRequest(with: parameters, url: url, appCredentials: appCredentials)
+	static func loginProvider(with userParameters: UserTokenParameters) -> TokenHandling.LoginProvider {
+		return { params in
+			let request = try authenticationRequest(with: userParameters, url: params.redirectURL, appCredentials: params.credentials)
 
-			let (data, _) = try await urlLoader(request)
+			let (data, _) = try await params.responseProvider(request)
 
 			let response = try JSONDecoder().decode(Mastodon.AppAuthResponse.self, from: data)
 
@@ -165,7 +169,9 @@ public struct Mastodon {
 		}
 
 		var request = URLRequest(url: url)
+		
 		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Accept")
 
 		let (data, _) = try await urlLoader(request)
 		let registrationResponse = try JSONDecoder().decode(AppRegistrationResponse.self, from: data)

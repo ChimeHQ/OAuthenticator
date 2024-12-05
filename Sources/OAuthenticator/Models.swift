@@ -30,11 +30,12 @@ public struct Token: Codable, Hashable, Sendable {
 public struct Login: Codable, Hashable, Sendable {
 	public var accessToken: Token
 	public var refreshToken: Token?
-    
+
     // User authorized scopes
     public var scopes: String?
-    
-    public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil) {
+	public var issuingServer: String?
+
+    public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil, issuingServer: String? = nil) {
 		self.accessToken = accessToken
 		self.refreshToken = refreshToken
         self.scopes = scopes
@@ -86,6 +87,16 @@ public struct LoginStorage {
 	}
 }
 
+public struct PARConfiguration: Hashable, Sendable {
+	public let url: URL
+	public let parameters: [String: String]
+
+	public init(url: URL, parameters: [String : String] = [:]) {
+		self.url = url
+		self.parameters = parameters
+	}
+}
+
 public struct TokenHandling {
 	public enum ResponseStatus: Hashable, Sendable {
 		case valid
@@ -94,14 +105,33 @@ public struct TokenHandling {
 		case refreshOrAuthorize
 	}
 
-	public typealias AuthorizationURLProvider = @Sendable (AppCredentials, URLResponseProvider) async throws -> URL
+	public struct AuthorizationURLParameters: Sendable {
+		public let credentials: AppCredentials
+		public let pcke: PKCEVerifier
+		public let parRequestURI: String?
+		public let stateToken: String
+		public let responseProvider: URLResponseProvider
+	}
+
+	public struct LoginProviderParameters: Sendable {
+		public let authorizationURL: URL
+		public let credentials: AppCredentials
+		public let redirectURL: URL
+		public let responseProvider: URLResponseProvider
+		public let stateToken: String
+		public let pcke: PKCEVerifier
+	}
+
+	/// The output of this is a URL suitable for user authentication in a browser.
+	public typealias AuthorizationURLProvider = @Sendable (AuthorizationURLParameters) async throws -> URL
+
 	/// A function that processes the results of an authentication operation
 	///
 	/// URL: The result of the Configuration.UserAuthenticator function
 	/// AppCredentials: The credentials from Configuration.appCredentials
 	/// URL: the authenticated URL from the OAuth service
 	/// URLResponseProvider: the authenticator's provider
-	public typealias LoginProvider = @Sendable (URL, AppCredentials, URL, URLResponseProvider) async throws -> Login
+	public typealias LoginProvider = @Sendable (LoginProviderParameters) async throws -> Login
 	public typealias RefreshProvider = @Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
 	public typealias ResponseStatusProvider = @Sendable ((Data, URLResponse)) throws -> ResponseStatus
 
@@ -109,15 +139,24 @@ public struct TokenHandling {
 	public let loginProvider: LoginProvider
 	public let refreshProvider: RefreshProvider?
 	public let responseStatusProvider: ResponseStatusProvider
+	public let dpopJWTGenerator: DPoPSigner.JWTGenerator?
+	public let parConfiguration: PARConfiguration?
 
-	public init(authorizationURLProvider: @escaping AuthorizationURLProvider,
-				loginProvider: @escaping LoginProvider,
-				refreshProvider: RefreshProvider? = nil,
-				responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized) {
+	public init(
+		parConfiguration: PARConfiguration? = nil,
+		authorizationURLProvider: @escaping AuthorizationURLProvider,
+		loginProvider: @escaping LoginProvider,
+		refreshProvider: RefreshProvider? = nil,
+		responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized,
+		dpopJWTGenerator: DPoPSigner.JWTGenerator? = nil
+
+	) {
 		self.authorizationURLProvider = authorizationURLProvider
 		self.loginProvider = loginProvider
 		self.refreshProvider = refreshProvider
 		self.responseStatusProvider = responseStatusProvider
+		self.dpopJWTGenerator = dpopJWTGenerator
+		self.parConfiguration = parConfiguration
 	}
 
 	@Sendable

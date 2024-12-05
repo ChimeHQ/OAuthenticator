@@ -61,19 +61,25 @@ public enum GitHub {
 
 	/// TokenHandling for GitHub Apps
 	public static func gitHubAppTokenHandling(with parameters: UserTokenParameters = .init()) -> TokenHandling {
-		TokenHandling(authorizationURLProvider: authorizationURLProvider(with: parameters),
-					  loginProvider: gitHubAppLoginProvider,
-					  refreshProvider: refreshProvider)
+		TokenHandling(
+			authorizationURLProvider: authorizationURLProvider(with: parameters),
+			loginProvider: gitHubAppLoginProvider,
+			refreshProvider: refreshProvider
+		)
 	}
 
 	/// TokenHandling for OAuth Apps
 	public static func OAuthAppTokenHandling() -> TokenHandling {
-		TokenHandling(authorizationURLProvider: authorizationURLProvider(with: .init()),
-					  loginProvider: OAuthAppLoginProvider)
+		TokenHandling(
+			authorizationURLProvider: authorizationURLProvider(with: .init()),
+			loginProvider: OAuthAppLoginProvider
+		)
 	}
 
 	static func authorizationURLProvider(with parameters: UserTokenParameters) -> TokenHandling.AuthorizationURLProvider {
-		return { credentials, _ in
+		return { params in
+			let credentials = params.credentials
+			
 			var urlBuilder = URLComponents()
 
 			urlBuilder.scheme = "https"
@@ -125,10 +131,10 @@ public enum GitHub {
 	}
 
 	@Sendable
-	static func gitHubAppLoginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
-		let request = try authenticationRequest(with: url, appCredentials: credentials)
+	static func gitHubAppLoginProvider(params: TokenHandling.LoginProviderParameters) async throws -> Login {
+		let request = try authenticationRequest(with: params.authorizationURL, appCredentials: params.credentials)
 
-		let (data, _) = try await urlLoader(request)
+		let (data, _) = try await params.responseProvider(request)
 
 		let response = try JSONDecoder().decode(GitHub.AppAuthResponse.self, from: data)
 
@@ -136,10 +142,10 @@ public enum GitHub {
 	}
 
 	@Sendable
-	static func OAuthAppLoginProvider(url: URL, credentials: AppCredentials, tokenURL: URL, urlLoader: URLResponseProvider) async throws -> Login {
-		let request = try authenticationRequest(with: url, appCredentials: credentials)
+	static func OAuthAppLoginProvider(params: TokenHandling.LoginProviderParameters) async throws -> Login {
+		let request = try authenticationRequest(with: params.authorizationURL, appCredentials: params.credentials)
 
-		let (data, _) = try await urlLoader(request)
+		let (data, _) = try await params.responseProvider(request)
 
 		let response = try JSONDecoder().decode(GitHub.OAuthResponse.self, from: data)
 

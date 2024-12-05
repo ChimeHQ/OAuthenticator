@@ -77,7 +77,7 @@ public struct GoogleAPI {
 
     public static func googleAPITokenHandling(with parameters: GoogleAPIParameters = .init()) -> TokenHandling {
         TokenHandling(authorizationURLProvider: Self.authorizationURLProvider(with: parameters),
-                      loginProvider: Self.loginProvider(),
+                      loginProvider: Self.loginProvider,
                       refreshProvider: Self.refreshProvider())
 	}
 
@@ -85,7 +85,9 @@ public struct GoogleAPI {
     ///
     /// Will request an authentication `code` based on the acceptance by the user
     public static func authorizationURLProvider(with parameters: GoogleAPIParameters) -> TokenHandling.AuthorizationURLProvider {
-		return { credentials, _ in
+		return { params in
+			let credentials = params.credentials
+			
 			var urlBuilder = URLComponents()
 
 			urlBuilder.scheme = GoogleAPI.scheme
@@ -160,24 +162,23 @@ public struct GoogleAPI {
 
 		return request
 	}
-    
-	static func loginProvider() -> TokenHandling.LoginProvider {
-		return { url, appCredentials, tokenURL, urlLoader in
-			let request = try authenticationRequest(url: url, appCredentials: appCredentials)
 
-			let (data, _) = try await urlLoader(request)
+	@Sendable
+	static func loginProvider(params: TokenHandling.LoginProviderParameters) async throws -> Login {
+		let request = try authenticationRequest(url: params.authorizationURL, appCredentials: params.credentials)
 
-            do {
-                let jsonString = String(data: data, encoding: .utf8) ?? ""
-                os_log(.debug, "%s", jsonString)
-                
-                let response = try JSONDecoder().decode(GoogleAPI.OAuthResponse.self, from: data)
-                return response.login
-            }
-            catch let decodingError as DecodingError {
-                os_log(.fault, "Reponse from AuthenticationProvider is not conformed to provided response format. %s", decodingError.failureReason ?? decodingError.localizedDescription)
-                throw decodingError
-            }
+		let (data, _) = try await params.responseProvider(request)
+
+		do {
+			let jsonString = String(data: data, encoding: .utf8) ?? ""
+			os_log(.debug, "%s", jsonString)
+
+			let response = try JSONDecoder().decode(GoogleAPI.OAuthResponse.self, from: data)
+			return response.login
+		}
+		catch let decodingError as DecodingError {
+			os_log(.fault, "Reponse from AuthenticationProvider is not conformed to provided response format. %s", decodingError.failureReason ?? decodingError.localizedDescription)
+			throw decodingError
 		}
 	}
 

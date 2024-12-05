@@ -40,17 +40,12 @@ final class AuthenticatorTests: XCTestCase {
 	}
 
 	@Sendable
-	private static func disabledAuthorizationURLProvider(credentials: AppCredentials) throws -> URL {
+	private static func disabledAuthorizationURLProvider(parameters: TokenHandling.AuthorizationURLParameters) throws -> URL {
 		throw AuthenticatorTestsError.disabled
 	}
 
 	@Sendable
-	private static func disabledLoginProvider(
-		url: URL,
-		credentials: AppCredentials,
-		otherURL: URL,
-		responseProvider: URLResponseProvider
-	) throws -> Login{
+	private static func disabledLoginProvider(parameters: TokenHandling.LoginProviderParameters) throws -> Login {
 		throw AuthenticatorTestsError.disabled
 	}
 
@@ -74,12 +69,12 @@ final class AuthenticatorTests: XCTestCase {
 			return URL(string: "my://login")!
 		}
 
-		let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
-			return URL(string: "my://auth?client_id=\(creds.clientId)")!
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
 		}
 
-		let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
-			XCTAssertEqual(url, URL(string: "my://login")!)
+		let loginProvider: TokenHandling.LoginProvider = { params in
+			XCTAssertEqual(params.redirectURL, URL(string: "my://login")!)
 
 			return Login(token: "TOKEN")
 		}
@@ -135,9 +130,11 @@ final class AuthenticatorTests: XCTestCase {
 			return ("hello".data(using: .utf8)!, URLResponse())
 		}
 
-		let tokenHandling = TokenHandling(authorizationURLProvider: Self.disabledAuthorizationURLProvider,
-										  loginProvider: Self.disabledLoginProvider,
-										  responseStatusProvider: TokenHandling.allResponsesValid)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
 		let retrieveTokenExp = expectation(description: "get token")
 		let storage = LoginStorage {
@@ -214,12 +211,12 @@ final class AuthenticatorTests: XCTestCase {
 
 	@MainActor
 	func testManualAuthentication() async throws {
-		let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
-			return URL(string: "my://auth?client_id=\(creds.clientId)")!
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { parameters in
+			return URL(string: "my://auth?client_id=\(parameters.credentials.clientId)")!
 		}
 
-		let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
-			XCTAssertEqual(url, URL(string: "my://login")!)
+		let loginProvider: TokenHandling.LoginProvider = { parameters in
+			XCTAssertEqual(parameters.redirectURL, URL(string: "my://login")!)
 
 			return Login(token: "TOKEN")
 		}
@@ -268,12 +265,12 @@ final class AuthenticatorTests: XCTestCase {
 	}
 
     func testManualAuthenticationWithSuccessResult() async throws {
-        let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
-            return URL(string: "my://auth?client_id=\(creds.clientId)")!
+        let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
         }
 
-        let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
-            XCTAssertEqual(url, URL(string: "my://login")!)
+        let loginProvider: TokenHandling.LoginProvider = { params in
+			XCTAssertEqual(params.redirectURL, URL(string: "my://login")!)
 
             return Login(token: "TOKEN")
         }
@@ -329,12 +326,12 @@ final class AuthenticatorTests: XCTestCase {
 
     // Test AuthenticationResultHandler with a failed UserAuthenticator
     func testManualAuthenticationWithFailedResult() async throws {
-        let urlProvider: TokenHandling.AuthorizationURLProvider = { creds in
-            return URL(string: "my://auth?client_id=\(creds.clientId)")!
+        let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
         }
 
-        let loginProvider: TokenHandling.LoginProvider = { url, creds, tokenUrl, _ in
-            XCTAssertEqual(url, URL(string: "my://login")!)
+        let loginProvider: TokenHandling.LoginProvider = { params in
+			XCTAssertEqual(params.redirectURL, URL(string: "my://login")!)
 
             return Login(token: "TOKEN")
         }

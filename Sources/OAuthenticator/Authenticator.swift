@@ -1,7 +1,7 @@
 import Foundation
 import AuthenticationServices
 
-public enum AuthenticatorError: Error {
+public enum AuthenticatorError: Error, Hashable {
 	case missingScheme
 	case missingAuthorizationCode
 	case missingTokenURL
@@ -15,6 +15,9 @@ public enum AuthenticatorError: Error {
     case missingRefreshToken
     case missingScope
 	case failingAuthenticatorUsed
+	case dpopTokenExpected(String)
+	case parRequestURIMissing
+	case stateTokenMismatch(String, String)
 }
 
 /// Manage state required to executed authenticated URLRequests.
@@ -40,6 +43,20 @@ public actor Authenticator {
 		case manualOnly
 	}
 
+	struct PARResponse: Codable, Hashable, Sendable {
+		public let requestURI: String
+		public let expiresIn: Int
+
+		enum CodingKeys: String, CodingKey {
+			case requestURI = "request_uri"
+			case expiresIn = "expires_in"
+		}
+
+		var expiry: Date {
+			Date(timeIntervalSinceNow: Double(expiresIn))
+		}
+	}
+
 	public struct Configuration {
 		public let appCredentials: AppCredentials
 
@@ -47,20 +64,23 @@ public actor Authenticator {
 		public let tokenHandling: TokenHandling
 		public let userAuthenticator: UserAuthenticator
 		public let mode: UserAuthenticationMode
-        
+
         // Specify an authenticationResult closure to obtain result and grantedScope
         public let authenticationStatusHandler: AuthenticationStatusHandler?
 
 		@available(tvOS 16.0, macCatalyst 13.0, *)
-		public init(appCredentials: AppCredentials,
-					loginStorage: LoginStorage? = nil,
-					tokenHandling: TokenHandling,
-					mode: UserAuthenticationMode = .automatic,
-                    authenticationStatusHandler: AuthenticationStatusHandler? = nil) {
+		public init(
+			appCredentials: AppCredentials,
+			loginStorage: LoginStorage? = nil,
+			tokenHandling: TokenHandling,
+			mode: UserAuthenticationMode = .automatic,
+			authenticationStatusHandler: AuthenticationStatusHandler? = nil
+		) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
 			self.mode = mode
+
 			// It *should* be possible to use just a reference to
 			// ASWebAuthenticationSession.userAuthenticator directly here
 			// with GlobalActorIsolatedTypesUsability, but it isn't working
@@ -68,12 +88,14 @@ public actor Authenticator {
             self.authenticationStatusHandler = authenticationStatusHandler
 		}
 
-		public init(appCredentials: AppCredentials,
-					loginStorage: LoginStorage? = nil,
-					tokenHandling: TokenHandling,
-					mode: UserAuthenticationMode = .automatic,
-					userAuthenticator: @escaping UserAuthenticator,
-                    authenticationStatusHandler: AuthenticationStatusHandler? = nil) {
+		public init(
+			appCredentials: AppCredentials,
+			loginStorage: LoginStorage? = nil,
+			tokenHandling: TokenHandling,
+			mode: UserAuthenticationMode = .automatic,
+			userAuthenticator: @escaping UserAuthenticator,
+			authenticationStatusHandler: AuthenticationStatusHandler? = nil
+		) {
 			self.appCredentials = appCredentials
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
@@ -88,6 +110,9 @@ public actor Authenticator {
 	let urlLoader: URLResponseProvider
 	private var activeTokenTask: Task<Login, Error>?
 	private var localLogin: Login?
+	private let pkce = PKCEVerifier()
+	private var dpop = DPoPSigner()
+	private let stateToken = UUID().uuidString
 
 	public init(config: Configuration, urlLoader loader: URLResponseProvider? = nil) {
 		self.config = config
@@ -150,9 +175,11 @@ public actor Authenticator {
 		var authedRequest = request
 		let token = login.accessToken.value
 
-		authedRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		if config.tokenHandling.dpopJWTGenerator == nil {
+			authedRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+		}
 
-		return try await urlLoader(authedRequest)
+		return try await dpopResponse(for: authedRequest, login: login)
 	}
 
 	/// Manually perform user authentication, if required.
@@ -252,11 +279,32 @@ extension Authenticator {
 			throw AuthenticatorError.manualAuthenticationRequired
 		}
 
-		let codeURL = try await config.tokenHandling.authorizationURLProvider(config.appCredentials, responseProvider)
+		let parRequestURI = try await getPARRequestURI()
+
+		let authConfig = TokenHandling.AuthorizationURLParameters(
+			credentials: config.appCredentials,
+			pcke: pkce,
+			parRequestURI: parRequestURI,
+			stateToken: stateToken,
+			responseProvider: { try await self.dpopResponse(for: $0, login: nil) }
+		)
+
+		let tokenURL = try await config.tokenHandling.authorizationURLProvider(authConfig)
+
 		let scheme = try config.appCredentials.callbackURLScheme
 
-		let	url = try await userAuthenticator(codeURL, scheme)
-		let login = try await config.tokenHandling.loginProvider(url, config.appCredentials, codeURL, urlLoader)
+		let	callbackURL = try await userAuthenticator(tokenURL, scheme)
+
+		let params = TokenHandling.LoginProviderParameters(
+			authorizationURL: tokenURL,
+			credentials: config.appCredentials,
+			redirectURL: callbackURL,
+			responseProvider: { try await self.dpopResponse(for: $0, login: nil) },
+			stateToken: stateToken,
+			pcke: pkce
+		)
+
+		let login = try await config.tokenHandling.loginProvider(params)
 
 		try await storeLogin(login)
 
@@ -276,16 +324,78 @@ extension Authenticator {
 			return nil
 		}
 
-		let login = try await refreshProvider(login, config.appCredentials, urlLoader)
+		let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: login) })
 
 		try await storeLogin(login)
 
 		return login
+	}
+
+	private func parRequest(url: URL, params: [String: String]) async throws -> PARResponse {
+		let challenge = pkce.challenge
+		let scopes = config.appCredentials.scopes.joined(separator: " ")
+		let callbackURI = config.appCredentials.callbackURL
+		let clientId = config.appCredentials.clientId
+
+		var request = URLRequest(url: url)
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Accept")
+		request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+
+		let base: [String: String] = [
+			"client_id": clientId,
+			"state": stateToken,
+			"scope": scopes,
+			"response_type": "code",
+			"redirect_uri": callbackURI.absoluteString,
+			"code_challenge": challenge.value,
+			"code_challenge_method": challenge.method,
+		]
+
+		let body = params
+			.merging(base, uniquingKeysWith: { a, b in a })
+			.map({ [$0, $1].joined(separator: "=") })
+			.joined(separator: "&")
+
+		request.httpBody = Data(body.utf8)
+
+		let (parData, _) = try await dpopResponse(for: request, login: nil)
+
+		return try JSONDecoder().decode(PARResponse.self, from: parData)
+	}
+
+	private func getPARRequestURI() async throws -> String? {
+		guard let parConfig = config.tokenHandling.parConfiguration else {
+			return nil
+		}
+
+		let parResponse = try await parRequest(url: parConfig.url, params: parConfig.parameters)
+
+		return parResponse.requestURI
 	}
 }
 
 extension Authenticator {
 	public nonisolated var responseProvider: URLResponseProvider {
 		{ try await self.response(for: $0) }
+	}
+
+	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (Data, URLResponse) {
+		guard let generator = config.tokenHandling.dpopJWTGenerator else {
+			return try await urlLoader(request)
+		}
+
+		let token = login?.accessToken.value
+		let tokenHash = token.map { PKCEVerifier.computeHash($0) }
+
+		return try await self.dpop.response(
+			isolation: self,
+			for: request,
+			using: generator,
+			token: token,
+			tokenHash: tokenHash,
+			issuingServer: login?.issuingServer,
+			provider: urlLoader
+		)
 	}
 }

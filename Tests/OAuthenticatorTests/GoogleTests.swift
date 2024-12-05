@@ -33,7 +33,7 @@ final class GoogleTests: XCTestCase {
         XCTAssert(!login.accessToken.valid)
     }
     
-    func testSuppliedParameters() throws {
+    func testSuppliedParameters() async throws {
         let googleParameters = GoogleAPI.GoogleAPIParameters(includeGrantedScopes: true, loginHint: "john@doe.com")
         
         XCTAssertNotNil(googleParameters.loginHint)
@@ -49,10 +49,18 @@ final class GoogleTests: XCTestCase {
             tokenHandling: tokenHandling,
             userAuthenticator: Authenticator.failingUserAuthenticator
         )
+		let provider: URLResponseProvider = { _ in throw AuthenticatorError.httpResponseExpected }
 
         // Validate URL is properly constructed
-        let googleURLProvider = try config.tokenHandling.authorizationURLProvider(creds)
-        
+		let params = TokenHandling.AuthorizationURLParameters(
+			credentials: creds,
+			pcke: PKCEVerifier(),
+			parRequestURI: nil,
+			stateToken: "unused",
+			responseProvider: provider
+		)
+        let googleURLProvider = try await config.tokenHandling.authorizationURLProvider(params)
+
         let urlComponent = URLComponents(url: googleURLProvider, resolvingAgainstBaseURL: true)
         XCTAssertNotNil(urlComponent)
         XCTAssertEqual(urlComponent!.scheme, GoogleAPI.scheme)
@@ -65,7 +73,7 @@ final class GoogleTests: XCTestCase {
         XCTAssertTrue(urlComponent!.queryItems!.contains(where: { $0.value == "john@doe.com" }))
     }
     
-    func testDefaultParameters() throws {
+    func testDefaultParameters() async throws {
         let googleParameters = GoogleAPI.GoogleAPIParameters()
         
         XCTAssertNil(googleParameters.loginHint)
@@ -81,10 +89,18 @@ final class GoogleTests: XCTestCase {
             tokenHandling: tokenHandling,
             userAuthenticator: Authenticator.failingUserAuthenticator
         )
+		let provider: URLResponseProvider = { _ in throw AuthenticatorError.httpResponseExpected }
 
         // Validate URL is properly constructed
-        let googleURLProvider = try config.tokenHandling.authorizationURLProvider(creds)
-        
+		let params = TokenHandling.AuthorizationURLParameters(
+			credentials: creds,
+			pcke: PKCEVerifier(),
+			parRequestURI: nil,
+			stateToken: "unused",
+			responseProvider: provider
+		)
+        let googleURLProvider = try await config.tokenHandling.authorizationURLProvider(params)
+
         let urlComponent = URLComponents(url: googleURLProvider, resolvingAgainstBaseURL: true)
         XCTAssertNotNil(urlComponent)
         XCTAssertEqual(urlComponent!.scheme, GoogleAPI.scheme)
