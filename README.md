@@ -257,6 +257,7 @@ Bluesky has a [complex](https://docs.bsky.app/docs/advanced-guides/oauth-client)
 > [!WARNING]
 > bsky.social's DPoP nonce changes frequently (maybe ever 10-30 seconds?). I have observed that if the nonce changes between a user requested a 2FA code and the code being entered, the server will reject the login attempt. Trying again will involve user interaction.
 
+Resovling PDS servers for a user is involved, but you can start with `plc.directory`, which can sometimes work. The actual resolution, however, is beyond the scope of this library.
 
 ```swift
 let responseProvider = URLSession.defaultProvider
@@ -289,7 +290,7 @@ let config = Authenticator.Configuration(
 
 let authenticator = Authenticator(config: config)
 
-// you can now use this authenticator to make requests against the user's PDS. Resolving the PDS, which is not be the same as the authentication server, is beyond the scope of this library.
+// you can now use this authenticator to make requests against the user's PDS. Remember, the PDS will not be the same as the authentication server.
 ```
 
 ## Contributing and Collaboration
