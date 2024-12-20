@@ -18,6 +18,20 @@ public enum Bluesky {
 		}
 	}
 
+	struct RefreshTokenRequest: Hashable, Sendable, Codable {
+		public let refresh_token: String
+		public let redirect_uri: String
+		public let grant_type: String
+		public let client_id: String
+
+		public init(refresh_token: String, redirect_uri: String, grant_type: String, client_id: String) {
+			self.refresh_token = refresh_token
+			self.redirect_uri = redirect_uri
+			self.grant_type = grant_type
+			self.client_id = client_id
+		}
+	}
+
 	struct TokenResponse: Hashable, Sendable, Codable {
 		public let access_token: String
 		public let refresh_token: String?
@@ -124,6 +138,40 @@ public enum Bluesky {
 	}
 
 	private static func refreshProvider(server: ServerMetadata) -> TokenHandling.RefreshProvider {
-		{ _, _, _ in throw AuthenticatorError.refreshUnsupported }
+		{ login, credentials, responseProvider -> Login in
+			guard let refreshToken = login.refreshToken?.value else {
+				throw AuthenticatorError.missingAuthorizationCode
+			}
+
+			guard let tokenURL = URL(string: server.tokenEndpoint) else {
+				throw AuthenticatorError.missingTokenURL
+			}
+
+			let tokenRequest = RefreshTokenRequest(
+				refresh_token: refreshToken,
+				redirect_uri: credentials.callbackURL.absoluteString,
+				grant_type: "refresh_token",
+				client_id: credentials.clientId // is this field truly necessary?
+			)
+
+			var request = URLRequest(url: tokenURL)
+
+			request.httpMethod = "POST"
+			request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+			request.httpBody = try JSONEncoder().encode(tokenRequest)
+
+			let (data, response) = try await responseProvider(request)
+
+			print("data:", String(decoding: data, as: UTF8.self))
+			print("response:", response)
+
+			let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
+
+			guard tokenResponse.token_type == "DPoP" else {
+				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
+			}
+
+			return tokenResponse.login(for: server.issuer)
+		}
 	}
 }

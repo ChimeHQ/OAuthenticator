@@ -324,7 +324,7 @@ extension Authenticator {
 			return nil
 		}
 
-		let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: login) })
+		let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: nil) })
 
 		try await storeLogin(login)
 
