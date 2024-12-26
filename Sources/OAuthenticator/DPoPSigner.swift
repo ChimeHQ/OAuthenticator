@@ -176,7 +176,7 @@ extension DPoPSigner {
 		let (data, response) = try await provider(request)
 
 		let existingNonce = nonce
-		
+
 		self.nonce = try nonceDecoder(data, response)
 
 		if nonce == existingNonce {
