@@ -89,7 +89,7 @@ public enum DPoPError: Error {
 /// Currently only uses ES256.
 ///
 /// Details here: https://datatracker.ietf.org/doc/html/rfc9449
-public final actor DPoPSigner {
+public final class DPoPSigner {
 	public struct JWTParameters: Sendable, Hashable {
 		public let keyType: String
 
@@ -162,6 +162,7 @@ extension DPoPSigner {
 	}
 
 	public func response(
+		isolation: isolated (any Actor),
 		for request: URLRequest,
 		using jwtGenerator: JWTGenerator,
 		token: String?,
