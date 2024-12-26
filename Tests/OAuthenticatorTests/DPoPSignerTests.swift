@@ -9,12 +9,12 @@ struct ExamplePayload: Codable, Hashable, Sendable {
 
 struct DPoPSignerTests {
     @Test
-	func basicSignature() throws {
+	func basicSignature() async throws {
 		let signer = DPoPSigner()
 
 		var request = URLRequest(url: URL(string: "https://example.com")!)
 
-		try signer.authenticateRequest(
+		try await signer.authenticateRequest(
 			&request,
 			using: { _ in "my_fake_jwt" },
 			token: "token",
