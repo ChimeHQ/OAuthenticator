@@ -89,7 +89,7 @@ public enum DPoPError: Error {
 /// Currently only uses ES256.
 ///
 /// Details here: https://datatracker.ietf.org/doc/html/rfc9449
-public final class DPoPSigner {
+public final actor DPoPSigner {
 	public struct JWTParameters: Sendable, Hashable {
 		public let keyType: String
 
@@ -101,7 +101,7 @@ public final class DPoPSigner {
 	}
 	
 	public typealias NonceDecoder = (Data, URLResponse) throws -> String
-	public typealias JWTGenerator = @Sendable (JWTParameters) throws -> String
+	public typealias JWTGenerator = @Sendable (JWTParameters) async throws -> String
 	private let nonceDecoder: NonceDecoder
 	public var nonce: String?
 
@@ -126,7 +126,7 @@ extension DPoPSigner {
 		token: String?,
 		tokenHash: String?,
 		issuer: String?
-	) throws {
+	) async throws {
 		guard
 			let method = request.httpMethod,
 			let url = request.url
@@ -143,7 +143,7 @@ extension DPoPSigner {
 			issuingServer: issuer
 		)
 
-		let jwt = try jwtGenerator(params)
+		let jwt = try await jwtGenerator(params)
 
 		request.setValue(jwt, forHTTPHeaderField: "DPoP")
 
@@ -162,7 +162,6 @@ extension DPoPSigner {
 	}
 
 	public func response(
-		isolation: isolated (any Actor),
 		for request: URLRequest,
 		using jwtGenerator: JWTGenerator,
 		token: String?,
@@ -172,12 +171,12 @@ extension DPoPSigner {
 	) async throws -> (Data, URLResponse) {
 		var request = request
 
-		try authenticateRequest(&request, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
+		try await authenticateRequest(&request, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
 
 		let (data, response) = try await provider(request)
 
 		let existingNonce = nonce
-
+		
 		self.nonce = try nonceDecoder(data, response)
 
 		if nonce == existingNonce {
@@ -187,7 +186,7 @@ extension DPoPSigner {
 		print("DPoP nonce updated", existingNonce ?? "", nonce ?? "")
 
 		// repeat once, using newly-established nonce
-		try authenticateRequest(&request, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
+		try await authenticateRequest(&request, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
 
 		return try await provider(request)
 	}

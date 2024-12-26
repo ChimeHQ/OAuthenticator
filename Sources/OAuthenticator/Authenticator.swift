@@ -389,7 +389,6 @@ extension Authenticator {
 		let tokenHash = token.map { PKCEVerifier.computeHash($0) }
 
 		return try await self.dpop.response(
-			isolation: self,
 			for: request,
 			using: generator,
 			token: token,
