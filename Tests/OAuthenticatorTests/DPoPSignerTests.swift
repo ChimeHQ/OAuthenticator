@@ -8,7 +8,8 @@ struct ExamplePayload: Codable, Hashable, Sendable {
 }
 
 struct DPoPSignerTests {
-    @Test
+	@Test
+	@MainActor
 	func basicSignature() async throws {
 		let signer = DPoPSigner()
 
@@ -31,5 +32,5 @@ struct DPoPSignerTests {
 		let dpop = try #require(headers["DPoP"])
 
 		#expect(dpop == "my_fake_jwt")
-    }
+	}
 }
