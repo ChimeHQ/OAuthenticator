@@ -7,7 +7,7 @@ struct ExamplePayload: Codable, Hashable, Sendable {
 	let value: String
 }
 
-struct DPoPSignerTests {
+ struct DPoPSignerTests {
     @Test
 	func basicSignature() async throws {
 		let signer = DPoPSigner()
@@ -15,6 +15,7 @@ struct DPoPSignerTests {
 		var request = URLRequest(url: URL(string: "https://example.com")!)
 
 		try await signer.authenticateRequest(
+			isolation: MainActor.shared,
 			&request,
 			using: { _ in "my_fake_jwt" },
 			token: "token",
