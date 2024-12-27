@@ -15,8 +15,8 @@ struct DPoPSignerTests {
 		var request = URLRequest(url: URL(string: "https://example.com")!)
 
 		try await signer.authenticateRequest(
-			isolation: MainActor.shared,
 			&request,
+			isolation: MainActor.shared,
 			using: { _ in "my_fake_jwt" },
 			token: "token",
 			tokenHash: "token_hash",
