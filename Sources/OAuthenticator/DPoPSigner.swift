@@ -101,7 +101,7 @@ public final class DPoPSigner {
 	}
 	
 	public typealias NonceDecoder = (Data, URLResponse) throws -> String
-	public typealias JWTGenerator = @Sendable (JWTParameters) throws -> String
+	public typealias JWTGenerator = @Sendable (JWTParameters) async throws -> String
 	private let nonceDecoder: NonceDecoder
 	public var nonce: String?
 
@@ -122,11 +122,12 @@ public final class DPoPSigner {
 extension DPoPSigner {
 	public func authenticateRequest(
 		_ request: inout URLRequest,
+		isolation: isolated (any Actor),
 		using jwtGenerator: JWTGenerator,
 		token: String?,
 		tokenHash: String?,
 		issuer: String?
-	) throws {
+	) async throws {
 		guard
 			let method = request.httpMethod,
 			let url = request.url
@@ -143,7 +144,7 @@ extension DPoPSigner {
 			issuingServer: issuer
 		)
 
-		let jwt = try jwtGenerator(params)
+		let jwt = try await jwtGenerator(params)
 
 		request.setValue(jwt, forHTTPHeaderField: "DPoP")
 
@@ -172,7 +173,7 @@ extension DPoPSigner {
 	) async throws -> (Data, URLResponse) {
 		var request = request
 
-		try authenticateRequest(&request, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
+		try await authenticateRequest(&request, isolation: isolation, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
 
 		let (data, response) = try await provider(request)
 
@@ -187,7 +188,7 @@ extension DPoPSigner {
 		print("DPoP nonce updated", existingNonce ?? "", nonce ?? "")
 
 		// repeat once, using newly-established nonce
-		try authenticateRequest(&request, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
+		try await authenticateRequest(&request, isolation: isolation, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
 
 		return try await provider(request)
 	}
