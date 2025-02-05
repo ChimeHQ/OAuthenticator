@@ -7,6 +7,7 @@ public enum AuthenticatorError: Error, Hashable {
 	case missingTokenURL
 	case missingAuthorizationURL
 	case refreshUnsupported
+	case refreshNotPossible
 	case tokenInvalid
 	case manualAuthenticationRequired
 	case httpResponseExpected
@@ -205,6 +206,18 @@ extension Authenticator {
 
 		try await storage.storeLogin(login)
 	}
+	
+	private func clearLogin() async {
+		guard let storage = config.loginStorage else { return }
+		
+		let invalidLogin = Login(token: "invalid", validUntilDate: .distantPast)
+		
+		do {
+			try await storage.storeLogin(invalidLogin)
+		} catch {
+			print("failed to store an invalid login, possibly stuck", error)
+		}
+	}
 }
 
 extension Authenticator {
@@ -324,11 +337,17 @@ extension Authenticator {
 			return nil
 		}
 
-		let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: nil) })
-
-		try await storeLogin(login)
-
-		return login
+		do {
+			let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: nil) })
+			
+			try await storeLogin(login)
+			
+			return login
+		} catch {
+			await clearLogin()
+			
+			throw error
+		}
 	}
 
 	private func parRequest(url: URL, params: [String: String]) async throws -> PARResponse {

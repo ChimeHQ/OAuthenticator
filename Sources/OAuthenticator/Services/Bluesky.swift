@@ -140,7 +140,7 @@ public enum Bluesky {
 	private static func refreshProvider(server: ServerMetadata) -> TokenHandling.RefreshProvider {
 		{ login, credentials, responseProvider -> Login in
 			guard let refreshToken = login.refreshToken?.value else {
-				throw AuthenticatorError.missingAuthorizationCode
+				throw AuthenticatorError.refreshNotPossible
 			}
 
 			guard let tokenURL = URL(string: server.tokenEndpoint) else {
@@ -162,8 +162,16 @@ public enum Bluesky {
 
 			let (data, response) = try await responseProvider(request)
 
-			print("data:", String(decoding: data, as: UTF8.self))
-			print("response:", response)
+			// make sure that we got a successful HTTP response
+			guard
+				let httpResponse = response as? HTTPURLResponse,
+				httpResponse.statusCode >= 200 && httpResponse.statusCode < 300
+			else {
+				print("data:", String(decoding: data, as: UTF8.self))
+				print("response:", response)
+				
+				throw AuthenticatorError.refreshNotPossible
+			}
 
 			let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
 
