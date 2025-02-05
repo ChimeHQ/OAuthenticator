@@ -255,7 +255,7 @@ let (data, response) = try await authenticator.response(for: request)
 Bluesky has a [complex](https://docs.bsky.app/docs/advanced-guides/oauth-client) OAuth implementation.
 
 > [!WARNING]
-> bsky.social's DPoP nonce changes frequently (maybe ever 10-30 seconds?). I have observed that if the nonce changes between a user requested a 2FA code and the code being entered, the server will reject the login attempt. Trying again will involve user interaction.
+> bsky.social's DPoP nonce changes frequently (maybe every 10-30 seconds?). I have observed that if the nonce changes between when a user requested a 2FA code and the code being entered, the server will reject the login attempt. Trying again will involve user interaction.
 
 Resovling PDS servers for a user is involved, but you can start with `plc.directory`, which can sometimes work. The actual resolution, however, is beyond the scope of this library.
 
