@@ -51,11 +51,15 @@ public enum Bluesky {
 		}
 	}
 
-	public static func tokenHandling(account: String, server: ServerMetadata, jwtGenerator: @escaping DPoPSigner.JWTGenerator) -> TokenHandling {
+	public static func tokenHandling(
+		account: String?,
+		server: ServerMetadata,
+		jwtGenerator: @escaping DPoPSigner.JWTGenerator
+	) -> TokenHandling {
 		TokenHandling(
 			parConfiguration: PARConfiguration(
 				url: URL(string: server.pushedAuthorizationRequestEndpoint)!,
-				parameters: ["login_hint": account]
+				parameters: { if let account { ["login_hint": account] } else { [:] } }()
 			),
 			authorizationURLProvider: authorizionURLProvider(server: server),
 			loginProvider: loginProvider(server: server),

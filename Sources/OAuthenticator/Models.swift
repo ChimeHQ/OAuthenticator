@@ -82,7 +82,7 @@ public struct AppCredentials: Codable, Hashable, Sendable {
 	}
 }
 
-public struct LoginStorage {
+public struct LoginStorage: Sendable {
 	public typealias RetrieveLogin = @Sendable () async throws -> Login?
 	public typealias StoreLogin = @Sendable (Login) async throws -> Void
 
