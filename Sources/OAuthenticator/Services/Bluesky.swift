@@ -44,6 +44,7 @@ public enum Bluesky {
 			Login(
 				accessToken: Token(value: access_token, expiresIn: expires_in),
 				refreshToken: refresh_token.map { Token(value: $0) },
+				did: sub,
 				scopes: scope,
 				issuingServer: issuingServer
 			)
