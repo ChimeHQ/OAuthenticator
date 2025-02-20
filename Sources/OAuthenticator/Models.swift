@@ -38,7 +38,8 @@ public struct Login: Codable, Hashable, Sendable {
     public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil, issuingServer: String? = nil) {
 		self.accessToken = accessToken
 		self.refreshToken = refreshToken
-        self.scopes = scopes
+		self.scopes = scopes
+		self.issuingServer = issuingServer
 	}
 
 	public init(token: String, validUntilDate: Date? = nil) {
