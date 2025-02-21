@@ -36,7 +36,7 @@ public struct DPoPTokenPayload: Codable, Hashable, Sendable {
 	}
 }
 
-struct DPoPRequestPayload: Codable, Hashable, Sendable {
+public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 	public let uniqueCode: String
 	public let httpMethod: String
 	public let httpRequestURL: String
