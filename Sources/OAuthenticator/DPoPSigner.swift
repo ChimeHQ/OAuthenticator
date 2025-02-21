@@ -1,7 +1,7 @@
 #if canImport(CryptoKit)
 import Foundation
 
-struct DPoPTokenPayload: Codable, Hashable, Sendable {
+public struct DPoPTokenPayload: Codable, Hashable, Sendable {
 	public let uniqueCode: String
 	public let httpMethod: String
 	public let httpRequestURL: String
