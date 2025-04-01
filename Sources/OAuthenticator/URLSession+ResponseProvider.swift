@@ -5,7 +5,8 @@ enum URLResponseProviderError: Error {
 }
 
 extension URLSession {
-	var responseProvider: URLResponseProvider {
+	/// Convert a `URLSession` instance into a `URLResponseProvider`.
+	public var responseProvider: URLResponseProvider {
 		return { request in
 			return try await withCheckedThrowingContinuation { continuation in
 				let task = self.dataTask(with: request) { data, response, error in
@@ -24,6 +25,7 @@ extension URLSession {
 		}
 	}
 
+	/// Convert a `URLSession` with a default configuration into a `URLResponseProvider`.
 	public static var defaultProvider: URLResponseProvider {
 		let session = URLSession(configuration: .default)
 
