@@ -165,7 +165,7 @@ public struct GoogleAPI {
 
 	@Sendable
 	static func loginProvider(params: TokenHandling.LoginProviderParameters) async throws -> Login {
-		let request = try authenticationRequest(url: params.authorizationURL, appCredentials: params.credentials)
+		let request = try authenticationRequest(url: params.redirectURL, appCredentials: params.credentials)
 
 		let (data, _) = try await params.responseProvider(request)
 
