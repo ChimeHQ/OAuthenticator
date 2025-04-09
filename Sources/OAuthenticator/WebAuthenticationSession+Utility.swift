@@ -1,3 +1,4 @@
+#if canImport(AuthenticationServices)
 import AuthenticationServices
 import SwiftUI
 
@@ -10,3 +11,5 @@ extension WebAuthenticationSession {
 		}
 	}
 }
+
+#endif

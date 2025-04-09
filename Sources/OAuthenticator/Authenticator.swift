@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(AuthenticationServices)
 import AuthenticationServices
+#endif
 
 public enum AuthenticatorError: Error, Hashable {
 	case missingScheme
@@ -69,6 +71,7 @@ public actor Authenticator {
         // Specify an authenticationResult closure to obtain result and grantedScope
         public let authenticationStatusHandler: AuthenticationStatusHandler?
 
+#if canImport(AuthenticationServices)
 		@available(tvOS 16.0, macCatalyst 13.0, *)
 		public init(
 			appCredentials: AppCredentials,
@@ -88,6 +91,7 @@ public actor Authenticator {
 			self.userAuthenticator = { try await ASWebAuthenticationSession.userAuthenticator(url: $0, scheme: $1) }
             self.authenticationStatusHandler = authenticationStatusHandler
 		}
+#endif
 
 		public init(
 			appCredentials: AppCredentials,

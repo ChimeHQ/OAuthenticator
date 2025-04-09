@@ -1,4 +1,5 @@
 import Foundation
+#if canImport(AuthenticationServices)
 import AuthenticationServices
 
 enum WebAuthenticationSessionError: Error {
@@ -69,3 +70,4 @@ extension ASWebAuthenticationSession {
 	}
 #endif
 }
+#endif

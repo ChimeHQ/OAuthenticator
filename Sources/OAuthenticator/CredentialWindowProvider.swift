@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if (os(iOS) || os(macOS)) && canImport(AuthenticationServices)
 
 #if os(iOS)
 import UIKit
