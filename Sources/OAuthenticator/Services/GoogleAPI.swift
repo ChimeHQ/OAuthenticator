@@ -1,5 +1,4 @@
 import Foundation
-import OSLog
 
 public struct GoogleAPI {
     // Define scheme, host and query item names
@@ -170,14 +169,12 @@ public struct GoogleAPI {
 		let (data, _) = try await params.responseProvider(request)
 
 		do {
-			let jsonString = String(data: data, encoding: .utf8) ?? ""
-			os_log(.debug, "%s", jsonString)
-
 			let response = try JSONDecoder().decode(GoogleAPI.OAuthResponse.self, from: data)
 			return response.login
 		}
 		catch let decodingError as DecodingError {
-			os_log(.fault, "Reponse from AuthenticationProvider is not conformed to provided response format. %s", decodingError.failureReason ?? decodingError.localizedDescription)
+			let msg = decodingError.failureReason ?? decodingError.localizedDescription
+			print("Reponse from AuthenticationProvider is not conformed to provided response format. ", msg)
 			throw decodingError
 		}
 	}
@@ -220,15 +217,14 @@ public struct GoogleAPI {
             let request = try authenticationRefreshRequest(login: login, appCredentials: appCredentials)
             let (data, _) = try await urlLoader(request)
 
-            let jsonString = String(data: data, encoding: .utf8) ?? ""
-            os_log(.debug, "[Authentication Refresh JSON Result] %s", jsonString)
-            
             do {
                 let response = try JSONDecoder().decode(GoogleAPI.OAuthResponse.self, from: data)
                 return response.login
             }
             catch let decodingError as DecodingError {
-                os_log(.fault, "Non-conformant response from AuthenticationProvider: %s", decodingError.failureReason ?? decodingError.localizedDescription)
+				let msg = decodingError.failureReason ?? decodingError.localizedDescription
+				print("Non-conformant response from AuthenticationProvider:", msg)
+				
                 throw decodingError
             }
         }
