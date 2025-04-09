@@ -265,7 +265,7 @@ let account = "myhandle.com"
 let server = "https://bsky.social"
 let clientMetadataEndpoint = "https://example.com/public/facing/client-metadata.json"
 
-// You should know the client configuration, and could general the needed AppCredentials struct manually instead.
+// You should know the client configuration, and could generate the needed AppCredentials struct manually instead.
 // The required fields are "clientId", "callbackURL", and "scopes"
 let clientConfig = try await ClientMetadata.load(for: clientMetadataEndpoint, provider: provider)
 let serverConfig = try await ServerMetadata.load(for: server, provider: provider)
