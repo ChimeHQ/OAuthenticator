@@ -40,7 +40,7 @@ final class GoogleTests: XCTestCase {
         // Validate URL is properly constructed
 		let params = TokenHandling.AuthorizationURLParameters(
 			credentials: creds,
-			pcke: PKCEVerifier(),
+			pcke: nil,
 			parRequestURI: nil,
 			stateToken: "unused",
 			responseProvider: provider
@@ -80,7 +80,7 @@ final class GoogleTests: XCTestCase {
         // Validate URL is properly constructed
 		let params = TokenHandling.AuthorizationURLParameters(
 			credentials: creds,
-			pcke: PKCEVerifier(),
+			pcke: nil,
 			parRequestURI: nil,
 			stateToken: "unused",
 			responseProvider: provider

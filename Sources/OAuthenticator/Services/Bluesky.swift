@@ -56,7 +56,8 @@ public enum Bluesky {
 	public static func tokenHandling(
 		account: String?,
 		server: ServerMetadata,
-		jwtGenerator: @escaping DPoPSigner.JWTGenerator
+		jwtGenerator: @escaping DPoPSigner.JWTGenerator,
+		pkce: PKCEVerifier
 	) -> TokenHandling {
 		TokenHandling(
 			parConfiguration: PARConfiguration(
@@ -66,9 +67,25 @@ public enum Bluesky {
 			authorizationURLProvider: authorizionURLProvider(server: server),
 			loginProvider: loginProvider(server: server),
 			refreshProvider: refreshProvider(server: server),
-			dpopJWTGenerator: jwtGenerator
+			dpopJWTGenerator: jwtGenerator,
+			pkce: pkce
 		)
 	}
+
+#if canImport(CryptoKit)
+	public static func tokenHandling(
+		account: String?,
+		server: ServerMetadata,
+		jwtGenerator: @escaping DPoPSigner.JWTGenerator
+	) -> TokenHandling {
+		tokenHandling(
+			account: account,
+			server: server,
+			jwtGenerator: jwtGenerator,
+			pkce: PKCEVerifier()
+		)
+	}
+#endif
 
 	private static func authorizionURLProvider(server: ServerMetadata) -> TokenHandling.AuthorizationURLProvider {
 		return { params in
@@ -114,10 +131,14 @@ public enum Bluesky {
 			guard let tokenURL = URL(string: server.tokenEndpoint) else {
 				throw AuthenticatorError.missingTokenURL
 			}
+			
+			guard let verifier = params.pcke?.verifier else {
+				throw AuthenticatorError.pkceRequired
+			}
 
 			let tokenRequest = TokenRequest(
 				code: authCode,
-				code_verifier: params.pcke.verifier,
+				code_verifier: verifier,
 				redirect_uri: params.credentials.callbackURL.absoluteString,
 				grant_type: "authorization_code",
 				client_id: params.credentials.clientId // is this field truly necessary?

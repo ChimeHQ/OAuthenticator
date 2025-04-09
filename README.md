@@ -70,7 +70,8 @@ let tokenHandling = TokenHandling(
     loginProvider: { params in ... }
     refreshProvider: { existingLogin, appCreds, urlLoader in ... },
     responseStatusProvider: TokenHandling.refreshOrAuthorizeWhenUnauthorized,
-    dpopJWTGenerator: { params in "signed JWT" }
+    dpopJWTGenerator: { params in "signed JWT" },
+    pkce: PKCEVerifier(hash: "S256", hasher: { ... })
 )
 
 let config = Authenticator.Configuration(
@@ -258,6 +259,8 @@ Bluesky has a [complex](https://docs.bsky.app/docs/advanced-guides/oauth-client)
 > bsky.social's DPoP nonce changes frequently (maybe every 10-30 seconds?). I have observed that if the nonce changes between when a user requested a 2FA code and the code being entered, the server will reject the login attempt. Trying again will involve user interaction.
 
 Resovling PDS servers for a user is involved and beyond the scope of this library. However, [ATResolve](https://github.com/mattmassicotte/ATResolve) might help!
+
+If you are using a platform that does not have [CryptoKit](https://developer.apple.com/documentation/cryptokit/) available, like Linux, you'll have to supply a `PKCEVerifier` parameter to the `Bluesky.tokenHandling` function.
 
 ```swift
 let responseProvider = URLSession.defaultProvider

@@ -1,23 +1,15 @@
-#if canImport(CryptoKit)
-import CryptoKit
 import Foundation
 
-extension SHA256.Digest {
-	var data: Data {
-		self.withUnsafeBytes { buffer in
-			Data(bytes: buffer.baseAddress!, count: buffer.count)
-		}
-	}
-}
-
-public struct PKCEVerifier: Hashable, Sendable {
+public struct PKCEVerifier: Sendable {
 	public struct Challenge: Hashable, Sendable {
 		public let value: String
 		public let method: String
 	}
+	public typealias HashFunction = @Sendable (String) -> String
 
 	public let verifier: String
 	public let challenge: Challenge
+	public let hashFunction: HashFunction
 
 	public static func randomString(length: Int) -> String {
 		let characters = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -31,23 +23,38 @@ public struct PKCEVerifier: Hashable, Sendable {
 		return string
 	}
 
-	public init() {
+	public init(hash: String, hasher: @escaping HashFunction) {
 		self.verifier = PKCEVerifier.randomString(length: 64)
+		self.hashFunction = hasher
 
 		self.challenge = Challenge(
-			value: Self.computeHash(verifier),
-			method: "S256"
+			value: hashFunction(verifier),
+			method: hash
 		)
 	}
-	
-	static func computeHash(_ value: String) -> String {
-		let digest = SHA256.hash(data: Data(value.utf8))
+}
 
-		return digest.data.base64EncodedURLEncodedString()
+#if canImport(CryptoKit)
+import CryptoKit
+
+extension SHA256.Digest {
+	var data: Data {
+		self.withUnsafeBytes { buffer in
+			Data(bytes: buffer.baseAddress!, count: buffer.count)
+		}
 	}
-	
-	public func validate(_ value: String) -> Bool {
-		Self.computeHash(value) == verifier
+}
+
+extension PKCEVerifier {
+	public init() {
+		self.init(
+			hash: "S256",
+			hasher: { value in
+				let digest = SHA256.hash(data: Data(value.utf8))
+				
+				return digest.data.base64EncodedURLEncodedString()
+			}
+		)
 	}
 }
 #endif

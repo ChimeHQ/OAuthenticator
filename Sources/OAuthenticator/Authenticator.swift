@@ -24,6 +24,7 @@ public enum AuthenticatorError: Error, Hashable {
 	case dpopTokenExpected(String)
 	case parRequestURIMissing
 	case stateTokenMismatch(String, String)
+	case pkceRequired
 }
 
 /// Manage state required to executed authenticated URLRequests.
@@ -118,7 +119,6 @@ public actor Authenticator {
 	let urlLoader: URLResponseProvider
 	private var activeTokenTask: Task<Login, Error>?
 	private var localLogin: Login?
-	private let pkce = PKCEVerifier()
 	private var dpop = DPoPSigner()
 	private let stateToken = UUID().uuidString
 
@@ -303,7 +303,7 @@ extension Authenticator {
 
 		let authConfig = TokenHandling.AuthorizationURLParameters(
 			credentials: config.appCredentials,
-			pcke: pkce,
+			pcke: config.tokenHandling.pkce,
 			parRequestURI: parRequestURI,
 			stateToken: stateToken,
 			responseProvider: { try await self.dpopResponse(for: $0, login: nil) }
@@ -321,7 +321,7 @@ extension Authenticator {
 			redirectURL: callbackURL,
 			responseProvider: { try await self.dpopResponse(for: $0, login: nil) },
 			stateToken: stateToken,
-			pcke: pkce
+			pcke: config.tokenHandling.pkce
 		)
 
 		let login = try await config.tokenHandling.loginProvider(params)
@@ -358,6 +358,10 @@ extension Authenticator {
 	}
 
 	private func parRequest(url: URL, params: [String: String]) async throws -> PARResponse {
+		guard let pkce = config.tokenHandling.pkce else {
+			throw AuthenticatorError.pkceRequired
+		}
+		
 		let challenge = pkce.challenge
 		let scopes = config.appCredentials.scopes.joined(separator: " ")
 		let callbackURI = config.appCredentials.callbackURL
@@ -410,9 +414,13 @@ extension Authenticator {
 		guard let generator = config.tokenHandling.dpopJWTGenerator else {
 			return try await urlLoader(request)
 		}
+		
+		guard let pkce = config.tokenHandling.pkce else {
+			throw AuthenticatorError.pkceRequired
+		}
 
 		let token = login?.accessToken.value
-		let tokenHash = token.map { PKCEVerifier.computeHash($0) }
+		let tokenHash = token.map { pkce.hashFunction($0) }
 
 		return try await self.dpop.response(
 			isolation: self,

@@ -1,4 +1,3 @@
-#if canImport(CryptoKit)
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -196,5 +195,3 @@ extension DPoPSigner {
 		return try await provider(request)
 	}
 }
-
-#endif

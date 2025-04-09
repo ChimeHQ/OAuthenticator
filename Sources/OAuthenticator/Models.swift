@@ -111,7 +111,7 @@ public struct TokenHandling {
 
 	public struct AuthorizationURLParameters: Sendable {
 		public let credentials: AppCredentials
-		public let pcke: PKCEVerifier
+		public let pcke: PKCEVerifier?
 		public let parRequestURI: String?
 		public let stateToken: String
 		public let responseProvider: URLResponseProvider
@@ -123,7 +123,7 @@ public struct TokenHandling {
 		public let redirectURL: URL
 		public let responseProvider: URLResponseProvider
 		public let stateToken: String
-		public let pcke: PKCEVerifier
+		public let pcke: PKCEVerifier?
 	}
 
 	/// The output of this is a URL suitable for user authentication in a browser.
@@ -145,6 +145,7 @@ public struct TokenHandling {
 	public let responseStatusProvider: ResponseStatusProvider
 	public let dpopJWTGenerator: DPoPSigner.JWTGenerator?
 	public let parConfiguration: PARConfiguration?
+	public let pkce: PKCEVerifier?
 
 	public init(
 		parConfiguration: PARConfiguration? = nil,
@@ -152,7 +153,8 @@ public struct TokenHandling {
 		loginProvider: @escaping LoginProvider,
 		refreshProvider: RefreshProvider? = nil,
 		responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized,
-		dpopJWTGenerator: DPoPSigner.JWTGenerator? = nil
+		dpopJWTGenerator: DPoPSigner.JWTGenerator? = nil,
+		pkce: PKCEVerifier? = nil
 
 	) {
 		self.authorizationURLProvider = authorizationURLProvider
@@ -161,6 +163,7 @@ public struct TokenHandling {
 		self.responseStatusProvider = responseStatusProvider
 		self.dpopJWTGenerator = dpopJWTGenerator
 		self.parConfiguration = parConfiguration
+		self.pkce = pkce
 	}
 
 	@Sendable
