@@ -1,5 +1,8 @@
 #if canImport(CryptoKit)
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct DPoPTokenPayload: Codable, Hashable, Sendable {
 	public let uniqueCode: String

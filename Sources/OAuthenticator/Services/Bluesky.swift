@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Find the spec here: https://atproto.com/specs/oauth
 public enum Bluesky {
