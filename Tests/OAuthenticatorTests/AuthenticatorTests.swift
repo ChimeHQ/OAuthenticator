@@ -28,6 +28,11 @@ final class MockURLResponseProvider: @unchecked Sendable {
 	var responseProvider: URLResponseProvider {
 		return { try self.response(for: $0) }
 	}
+	
+	static let dummyResponse: (Data, URLResponse) = (
+		"hello".data(using: .utf8)!,
+		URLResponse(url: URL(string: "https://test.com")!, mimeType: nil, expectedContentLength: 5, textEncodingName: nil)
+	)
 }
 
 final class AuthenticatorTests: XCTestCase {
@@ -61,7 +66,7 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer TOKEN")
 			authedLoadExp.fulfill()
 
-			return ("hello".data(using: .utf8)!, URLResponse())
+			return MockURLResponseProvider.dummyResponse
 		}
 
 		let userAuthExp = expectation(description: "user auth")
@@ -131,7 +136,7 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer TOKEN")
 			authedLoadExp.fulfill()
 
-			return ("hello".data(using: .utf8)!, URLResponse())
+			return MockURLResponseProvider.dummyResponse
 		}
 
 		let tokenHandling = TokenHandling(
@@ -169,7 +174,7 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer REFRESHED")
 			authedLoadExp.fulfill()
 
-			return ("hello".data(using: .utf8)!, URLResponse())
+			return MockURLResponseProvider.dummyResponse
 		}
 
 		let refreshExp = expectation(description: "refresh")
@@ -245,7 +250,7 @@ final class AuthenticatorTests: XCTestCase {
 		let mockLoader: URLResponseProvider = { request in
 			loadExp.fulfill()
 
-			return ("hello".data(using: .utf8)!, URLResponse())
+			return MockURLResponseProvider.dummyResponse
 		}
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
@@ -312,7 +317,7 @@ final class AuthenticatorTests: XCTestCase {
         let mockLoader: URLResponseProvider = { request in
             loadExp.fulfill()
 
-            return ("hello".data(using: .utf8)!, URLResponse())
+            return MockURLResponseProvider.dummyResponse
         }
 
         let auth = Authenticator(config: config, urlLoader: mockLoader)
@@ -438,7 +443,7 @@ final class AuthenticatorTests: XCTestCase {
 
         let mockLoader: URLResponseProvider = { @MainActor request in
 			sentRequests.append(request)
-            return ("hello".data(using: .utf8)!, URLResponse())
+            return MockURLResponseProvider.dummyResponse
         }
 
         var refreshedLogins: [Login] = []
