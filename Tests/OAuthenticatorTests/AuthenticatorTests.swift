@@ -1,4 +1,8 @@
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 import OAuthenticator
 
 enum AuthenticatorTestsError: Error {

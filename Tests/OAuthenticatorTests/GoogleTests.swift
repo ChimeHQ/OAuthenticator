@@ -1,4 +1,8 @@
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 @testable import OAuthenticator
 
 final class GoogleTests: XCTestCase {
