@@ -11,9 +11,8 @@ struct ExamplePayload: Codable, Hashable, Sendable {
 }
 
 struct DPoPSignerTests {
-	@Test
 	@MainActor
-	func basicSignature() async throws {
+	@Test func basicSignature() async throws {
 		let signer = DPoPSigner()
 
 		var request = URLRequest(url: URL(string: "https://example.com")!)
@@ -28,12 +27,8 @@ struct DPoPSignerTests {
 		)
 
 		let headers = try #require(request.allHTTPHeaderFields)
-		let authorization = try #require(headers["Authorization"])
 
-		#expect(authorization == "DPoP token")
-
-		let dpop = try #require(headers["DPoP"])
-
-		#expect(dpop == "my_fake_jwt")
+		#expect(headers["Authorization"] == "DPoP token")
+		#expect(headers["DPoP"] == "my_fake_jwt")
 	}
 }
