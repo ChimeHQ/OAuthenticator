@@ -9,8 +9,12 @@ import FoundationNetworking
 /// mechanism.
 public typealias URLResponseProvider = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
+/// Holds an access token value and its expiry.
 public struct Token: Codable, Hashable, Sendable {
+	/// The access token.
 	public let value: String
+	
+	/// An optional expiry.
 	public let expiry: Date?
 
 	public init(value: String, expiry: Date? = nil) {
@@ -23,6 +27,9 @@ public struct Token: Codable, Hashable, Sendable {
 		self.expiry = Date(timeIntervalSinceNow: TimeInterval(seconds))
 	}
 
+	/// Determines if the token object is valid.
+	///
+	/// A token without an expiry is unconditionally valid.
 	public var valid: Bool {
 		guard let date = expiry else { return true }
 
