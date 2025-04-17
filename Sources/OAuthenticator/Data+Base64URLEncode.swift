@@ -7,8 +7,4 @@ extension Data {
 			.replacingOccurrences(of: "/", with: "_")
 			.replacingOccurrences(of: "=", with: "")
 	}
-
-	init?(base64URLEncoded string: String) {
-		self.init(base64Encoded: string)
-	}
 }
