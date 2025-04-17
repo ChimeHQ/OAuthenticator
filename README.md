@@ -121,6 +121,63 @@ if let authenticatedLogin = authenticatedLogin {
 }
 ```
 
+### DPoP
+
+Constructing and signing the JSON Web Token / JSON Web Keys necessary for DPoP suppot is mostly out of the scope of this library. But here's an example of how to do it, using [Jot](https://github.com/mattmassicotte/Jot), a really basic JWT/JWK library I put together. You should be able to use this as a guide if you want to use a different JWT/JWK library.
+
+```swift
+import Jot
+import OAuthenticator
+
+// generate a DPoP key
+let key = DPoPKey.P256()
+
+// define your claims, making sure to pay attention to the JSON coding keys
+struct DPoPTokenClaims : JSONWebTokenPayload {
+    // standard claims
+    let iss: String?
+    let jti: String?
+    let iat: Date?
+    let exp: Date?
+
+    // custom claims, which could vary depending on the service you are working with
+    let htm: String?
+    let htu: String?
+}
+
+// produce a DPoPSigner.JWTGenerator function from that key
+extension DPoPSigner {
+    static func JSONWebTokenGenerator(dpopKey: DPoPKey) -> DPoPSigner.JWTGenerator {
+        let id = dpopKey.id.uuidString
+        
+        return { params in
+            // construct the private key
+            let key = try dpopKey.p256PrivateKey
+            
+            // make the JWK
+            let jwk = JSONWebKey(p256Key: key.publicKey)
+
+            // fill in all the JWT fields, including whatever custom claims you need
+            let newToken = JSONWebToken<DPoPTokenClaims>(
+                header: JSONWebTokenHeader(
+                    algorithm: .ES256,
+                    type: params.keyType,
+                    keyId: id,
+                    jwk: jwk
+                ),
+                payload: DPoPTokenClaims(
+                    iss: params.issuingServer,
+                    htm: params.httpMethod,
+                    htu: params.requestEndpoint
+                )
+            )
+            
+            return try newToken.encode(with: key)
+        }
+    }
+}
+```
+
 ### GitHub
 
 OAuthenticator also comes with pre-packaged configuration for GitHub, which makes set up much more straight-forward.
@@ -261,6 +318,8 @@ Bluesky has a [complex](https://docs.bsky.app/docs/advanced-guides/oauth-client)
 Resovling PDS servers for a user is involved and beyond the scope of this library. However, [ATResolve](https://github.com/mattmassicotte/ATResolve) might help!
 
 If you are using a platform that does not have [CryptoKit](https://developer.apple.com/documentation/cryptokit/) available, like Linux, you'll have to supply a `PKCEVerifier` parameter to the `Bluesky.tokenHandling` function.
+
+See above for an example of how to implement DPoP JWTs.
 
 ```swift
 let responseProvider = URLSession.defaultProvider
