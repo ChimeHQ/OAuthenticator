@@ -3,7 +3,7 @@
 [![Documentation][documentation badge]][documentation]
 
 # OAuthenticator
-Lightweight OAuth 2.0 request authentication in Swift
+Lightweight OAuth 2.1 request authentication in Swift
 
 There are lots of OAuth solutions out there. This one is small, uses Swift concurrency, and offers lots of control over the process.
 
