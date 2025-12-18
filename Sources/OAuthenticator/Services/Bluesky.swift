@@ -131,7 +131,7 @@ public enum Bluesky {
 			guard let tokenURL = URL(string: server.tokenEndpoint) else {
 				throw AuthenticatorError.missingTokenURL
 			}
-			
+
 			guard let verifier = params.pcke?.verifier else {
 				throw AuthenticatorError.pkceRequired
 			}
@@ -141,7 +141,7 @@ public enum Bluesky {
 				code_verifier: verifier,
 				redirect_uri: params.credentials.callbackURL.absoluteString,
 				grant_type: "authorization_code",
-				client_id: params.credentials.clientId // is this field truly necessary?
+				client_id: params.credentials.clientId
 			)
 
 			var request = URLRequest(url: tokenURL)
@@ -179,7 +179,7 @@ public enum Bluesky {
 				refresh_token: refreshToken,
 				redirect_uri: credentials.callbackURL.absoluteString,
 				grant_type: "refresh_token",
-				client_id: credentials.clientId // is this field truly necessary?
+				client_id: credentials.clientId
 			)
 
 			var request = URLRequest(url: tokenURL)
@@ -197,7 +197,7 @@ public enum Bluesky {
 			else {
 				print("data:", String(decoding: data, as: UTF8.self))
 				print("response:", response)
-				
+
 				throw AuthenticatorError.refreshNotPossible
 			}
 
