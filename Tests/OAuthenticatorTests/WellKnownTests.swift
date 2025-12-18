@@ -30,7 +30,7 @@ final class WellKnownTests: XCTestCase {
 					url: request.url!,
 					mimeType: "application/json",
 					expectedContentLength: data.count,
-					textEncodingName: nil
+					textEncodingName: "utf-8"
 				)
 			)
 		}
@@ -67,7 +67,7 @@ final class WellKnownTests: XCTestCase {
 					url: request.url!,
 					mimeType: "application/json",
 					expectedContentLength: data.count,
-					textEncodingName: nil
+					textEncodingName: "utf-8"
 				)
 			)
 		}
@@ -105,7 +105,8 @@ final class WellKnownTests: XCTestCase {
 					url: request.url!,
 					mimeType: "application/json",
 					expectedContentLength: data.count,
-					textEncodingName: nil)
+					textEncodingName: "utf-8"
+				)
 			)
 		}
 
