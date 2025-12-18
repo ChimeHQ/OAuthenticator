@@ -2,6 +2,10 @@ import XCTest
 
 @testable import OAuthenticator
 
+#if canImport(FoundationNetworking)
+	import FoundationNetworking
+#endif
+
 final class WellKnownTests: XCTestCase {
 	func testServerMetadataLoad() async throws {
 		let loadUrlExp = expectation(description: "load url")
