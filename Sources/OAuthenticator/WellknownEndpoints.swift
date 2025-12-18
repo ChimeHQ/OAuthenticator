@@ -7,6 +7,7 @@ enum MetadataError: Error {
 	case urlInvalid
 }
 
+// See: https://www.rfc-editor.org/rfc/rfc8414.html
 public struct ServerMetadata: Codable, Hashable, Sendable {
 	public let issuer: String
 	public let authorizationEndpoint: String
@@ -48,19 +49,21 @@ public struct ServerMetadata: Codable, Hashable, Sendable {
 		components.scheme = "https"
 		components.host = host
 		components.path = "/.well-known/oauth-authorization-server"
-		components.queryItems = [
-			URLQueryItem(name: "Accept", value: "application/json")
-		]
 
 		guard let url = components.url else {
 			throw MetadataError.urlInvalid
 		}
 
-		let (data, _) = try await provider(URLRequest(url: url))
+		var request = URLRequest(url: url)
+		request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+		let (data, _) = try await provider(request)
 
 		return try JSONDecoder().decode(ServerMetadata.self, from: data)
 	}
 }
+
+// See: https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/
 
 public struct ClientMetadata: Hashable, Codable, Sendable {
 	public let clientId: String
@@ -75,12 +78,17 @@ public struct ClientMetadata: Hashable, Codable, Sendable {
 		case dpopBoundAccessTokens = "dpop_bound_access_tokens"
 	}
 
-	public static func load(for endpoint: String, provider: URLResponseProvider) async throws -> ClientMetadata {
-		guard let url = URL(string: endpoint) else {
+	public static func load(for client_id: String, provider: URLResponseProvider) async throws
+		-> ClientMetadata
+	{
+		guard let url = URL(string: client_id) else {
 			throw MetadataError.urlInvalid
 		}
 
-		let (data, _) = try await provider(URLRequest(url: url))
+		var request = URLRequest(url: url)
+		request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+		let (data, _) = try await provider(request)
 
 		return try JSONDecoder().decode(ClientMetadata.self, from: data)
 	}
