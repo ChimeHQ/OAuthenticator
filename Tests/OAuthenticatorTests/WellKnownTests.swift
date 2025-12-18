@@ -10,8 +10,16 @@ final class WellKnownTests: XCTestCase {
 			XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
 			loadUrlExp.fulfill()
 
+			// This is a more minimal Authorization Server Metadata that should be valid,
+			// but throws an error due to: https://github.com/ChimeHQ/OAuthenticator/issues/37
+			//
+			// let content = """
+			// 	{"issuer": "https://server-metadata.test", "authorization_endpoint": "https://server-metadata.test/oauth/authorize", "token_endpoint": "https://server-metadata.test/oauth/token"}
+			// 	"""
+
+			// Response from https://bsky.social/.well-known/oauth-authorization-server
 			let content = """
-				{"issuer": "https://server-metadata.test", "authorization_endpoint": "https://server-metadata.test/oauth/authorize", "token_endpoint": "https://server-metadata.test/oauth/token"}
+				{"issuer":"https://server-metadata.test","request_parameter_supported":true,"request_uri_parameter_supported":true,"require_request_uri_registration":true,"scopes_supported":["atproto","transition:email","transition:generic","transition:chat.bsky"],"subject_types_supported":["public"],"response_types_supported":["code"],"response_modes_supported":["query","fragment","form_post"],"grant_types_supported":["authorization_code","refresh_token"],"code_challenge_methods_supported":["S256"],"ui_locales_supported":["en-US"],"display_values_supported":["page","popup","touch"],"request_object_signing_alg_values_supported":["RS256","RS384","RS512","PS256","PS384","PS512","ES256","ES256K","ES384","ES512","none"],"authorization_response_iss_parameter_supported":true,"request_object_encryption_alg_values_supported":[],"request_object_encryption_enc_values_supported":[],"jwks_uri":"https://server-metadata.test/oauth/jwks","authorization_endpoint":"https://server-metadata.test/oauth/authorize","token_endpoint":"https://server-metadata.test/oauth/token","token_endpoint_auth_methods_supported":["none","private_key_jwt"],"token_endpoint_auth_signing_alg_values_supported":["RS256","RS384","RS512","PS256","PS384","PS512","ES256","ES256K","ES384","ES512"],"revocation_endpoint":"https://server-metadata.test/oauth/revoke","pushed_authorization_request_endpoint":"https://server-metadata.test/oauth/par","require_pushed_authorization_requests":true,"dpop_signing_alg_values_supported":["RS256","RS384","RS512","PS256","PS384","PS512","ES256","ES256K","ES384","ES512"],"client_id_metadata_document_supported":true}
 				"""
 
 			let data = try XCTUnwrap(content.data(using: .utf8))
@@ -45,7 +53,7 @@ final class WellKnownTests: XCTestCase {
 			loadUrlExp.fulfill()
 
 			let content = """
-				{"client_id": "https://client-metadata.test/oauth-client-metadata.json", "scope": "atproto", "redirect_uris": ["https://client-metadata.test/oauth/callback"]}
+				{"client_id": "https://client-metadata.test/oauth-client-metadata.json", "scope": "atproto", "redirect_uris": ["https://client-metadata.test/oauth/callback"], "dpop_bound_access_tokens": true}
 				"""
 
 			let data = try XCTUnwrap(content.data(using: .utf8))
