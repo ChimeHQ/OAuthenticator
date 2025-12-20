@@ -24,6 +24,7 @@ public enum AuthenticatorError: Error, Hashable {
 	case dpopTokenExpected(String)
 	case parRequestURIMissing
 	case stateTokenMismatch(String, String)
+	case issuingServerMismatch(String, String)
 	case pkceRequired
 }
 
