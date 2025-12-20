@@ -273,6 +273,7 @@ final class AuthenticatorTests: XCTestCase {
 		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 
+	@MainActor
     func testManualAuthenticationWithSuccessResult() async throws {
         let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
 			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
@@ -297,7 +298,7 @@ final class AuthenticatorTests: XCTestCase {
         
         // This is the callback to obtain authentication results
         var authenticatedLogin: Login?
-        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { result in
+        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
             switch result {
                 case .failure(_):
                      XCTFail()
@@ -307,11 +308,13 @@ final class AuthenticatorTests: XCTestCase {
         }
         
         // Configure Authenticator with result callback
-        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-                                                 tokenHandling: tokenHandling,
-                                                 mode: .manualOnly,
-                                                 userAuthenticator: mockUserAuthenticator,
-                                                 authenticationStatusHandler: authenticationCallback)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			tokenHandling: tokenHandling,
+			mode: .manualOnly,
+			userAuthenticator: mockUserAuthenticator,
+			authenticationStatusHandler: authenticationCallback
+		)
 
         let loadExp = expectation(description: "load url")
         let mockLoader: URLResponseProvider = { request in
@@ -334,6 +337,7 @@ final class AuthenticatorTests: XCTestCase {
     }
 
     // Test AuthenticationResultHandler with a failed UserAuthenticator
+	@MainActor
     func testManualAuthenticationWithFailedResult() async throws {
         let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
 			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
@@ -352,7 +356,7 @@ final class AuthenticatorTests: XCTestCase {
         // This is the callback to obtain authentication results
         var authenticatedLogin: Login?
         let failureAuth = expectation(description: "auth failure")
-        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { result in
+        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
             switch result {
                 case .failure(_):
                     failureAuth.fulfill()
@@ -363,11 +367,13 @@ final class AuthenticatorTests: XCTestCase {
         }
         
         // Configure Authenticator with result callback
-        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-                                                 tokenHandling: tokenHandling,
-                                                 mode: .manualOnly,
-                                                 userAuthenticator: Authenticator.failingUserAuthenticator,
-                                                 authenticationStatusHandler: authenticationCallback)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			tokenHandling: tokenHandling,
+			mode: .manualOnly,
+			userAuthenticator: Authenticator.failingUserAuthenticator,
+			authenticationStatusHandler: authenticationCallback
+		)
         
         let auth = Authenticator(config: config, urlLoader: nil)
         do {

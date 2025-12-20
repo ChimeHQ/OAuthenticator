@@ -108,7 +108,7 @@ public struct PARConfiguration: Hashable, Sendable {
 	}
 }
 
-public struct TokenHandling {
+public struct TokenHandling: Sendable {
 	public enum ResponseStatus: Hashable, Sendable {
 		case valid
 		case refresh

@@ -30,8 +30,8 @@ public enum AuthenticatorError: Error, Hashable {
 /// Manage state required to executed authenticated URLRequests.
 public actor Authenticator {
 	public typealias UserAuthenticator = @Sendable (URL, String) async throws -> URL
-    public typealias AuthenticationStatusHandler = (Result<Login, AuthenticatorError>) -> Void
-    
+    public typealias AuthenticationStatusHandler = @Sendable (Result<Login, AuthenticatorError>) async -> Void
+
 	/// A `UserAuthenticator` that always fails. Useful as a placeholder
 	/// for testing and for doing manual authentication with an external
 	/// instance not available at configuration-creation time.
@@ -259,10 +259,10 @@ extension Authenticator {
             }
 
             // Inform authenticationResult closure of new login information
-            self.config.authenticationStatusHandler?(.success(login))
+            await self.config.authenticationStatusHandler?(.success(login))
         }
         catch let authenticatorError as AuthenticatorError {
-            self.config.authenticationStatusHandler?(.failure(authenticatorError))
+            await self.config.authenticationStatusHandler?(.failure(authenticatorError))
 
             // Rethrow error
             throw authenticatorError
