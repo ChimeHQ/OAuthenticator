@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -26,14 +26,3 @@ let package = Package(
 		.testTarget(name: "OAuthenticatorTests", dependencies: ["OAuthenticator"]),
 	]
 )
-
-let swiftSettings: [SwiftSetting] = [
-	.enableExperimentalFeature("StrictConcurrency"),
-	.enableUpcomingFeature("GlobalActorIsolatedTypesUsability"),
-]
-
-for target in package.targets {
-	var settings = target.swiftSettings ?? []
-	settings.append(contentsOf: swiftSettings)
-	target.swiftSettings = settings
-}
