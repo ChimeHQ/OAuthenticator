@@ -131,6 +131,22 @@ public struct TokenHandling: Sendable {
 		public let responseProvider: URLResponseProvider
 		public let stateToken: String
 		public let pcke: PKCEVerifier?
+
+		public init(
+			authorizationURL: URL,
+			credentials: AppCredentials,
+			redirectURL: URL,
+			responseProvider: @escaping URLResponseProvider,
+			stateToken: String,
+			pcke: PKCEVerifier?
+		) {
+			self.authorizationURL = authorizationURL
+			self.credentials = credentials
+			self.redirectURL = redirectURL
+			self.responseProvider = responseProvider
+			self.stateToken = stateToken
+			self.pcke = pcke
+		}
 	}
 
 	/// The output of this is a URL suitable for user authentication in a browser.
