@@ -38,14 +38,14 @@ struct BlueskyTests {
 
 		let verifier = PKCEVerifier()
 		let params = TokenHandling.LoginProviderParameters(
-			authorizationURL: URL(string: "https://test.com/auth")!,
+			authorizationURL: URL(string: "https://server-metadata.test/oauth/authorize")!,
 			credentials: AppCredentials(
 				clientId: "a",
 				clientPassword: "b",
 				scopes: [],
-				callbackURL: URL(string: "https://test.com/callback")!,
+				callbackURL: URL(string: "app.test://callback")!,
 			),
-			redirectURL: URL(string: "https://test.com/redirect?code=123&state=state&iss=this_is_incorrect")!,
+			redirectURL: URL(string: "app.test://callback?code=123&state=state&iss=this_is_incorrect")!,
 			responseProvider: provider,
 			stateToken: "state",
 			pcke: verifier
