@@ -103,6 +103,8 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual($0, Login(token: "TOKEN"))
 
 			storeTokenExp.fulfill()
+		} clearLogin: {
+			XCTFail()
 		}
 
 		let config = Authenticator.Configuration(
@@ -151,6 +153,8 @@ final class AuthenticatorTests: XCTestCase {
 
 			return Login(token: "TOKEN")
 		} storeLogin: { _ in
+			XCTFail()
+		} clearLogin: {
 			XCTFail()
 		}
 
@@ -204,6 +208,8 @@ final class AuthenticatorTests: XCTestCase {
 			storeTokenExp.fulfill()
 
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
+		} clearLogin: {
+			XCTFail()
 		}
 
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
@@ -216,6 +222,65 @@ final class AuthenticatorTests: XCTestCase {
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		await fulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+	}
+
+	@MainActor
+	func testExpiredTokenRefreshFailing() async throws {
+		let mockLoader: URLResponseProvider = { request in
+			// We should never load the resource, since we failed to refresh the session:
+			XCTFail()
+
+			return MockURLResponseProvider.dummyResponse
+		}
+
+		let refreshExp = expectation(description: "refresh")
+		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
+			XCTAssertEqual(login.accessToken.value, "EXPIRED")
+			XCTAssertEqual(login.refreshToken?.value, "REFRESH")
+
+			refreshExp.fulfill()
+
+			// Fail the refresh attempt, e.g., the refresh token has expired:
+			throw AuthenticatorError.refreshNotPossible
+		}
+
+		let tokenHandling = TokenHandling(authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+										  loginProvider: Self.disabledLoginProvider,
+										  refreshProvider: refreshProvider,
+										  responseStatusProvider: TokenHandling.allResponsesValid)
+
+		let retrieveTokenExp = expectation(description: "get token")
+		let clearTokenExp = expectation(description: "clear token")
+
+		let storage = LoginStorage {
+			retrieveTokenExp.fulfill()
+
+			return Login(accessToken: Token(value: "EXPIRED", expiry: .distantPast),
+						 refreshToken: Token(value: "REFRESH"))
+		} storeLogin: { login in
+			XCTFail()
+		} clearLogin: {
+			clearTokenExp.fulfill()
+		}
+
+		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
+												 loginStorage: storage,
+												 tokenHandling: tokenHandling,
+												 userAuthenticator: Self.disabledUserAuthenticator)
+
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
+
+		do {
+			let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+
+			XCTFail()
+		} catch AuthenticatorError.refreshNotPossible {
+			// we expect this error to be thrown
+		} catch {
+			XCTFail()
+		}
+
+		await fulfillment(of: [retrieveTokenExp, refreshExp, clearTokenExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	@MainActor
@@ -418,6 +483,8 @@ final class AuthenticatorTests: XCTestCase {
 						 refreshToken: Token(value: "REFRESH"))
 		} storeLogin: { login in
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
+		} clearLogin: {
+			XCTFail()
 		}
 
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
@@ -479,6 +546,8 @@ final class AuthenticatorTests: XCTestCase {
             return storedLogin
         } storeLogin: { @MainActor login in
             savedLogins.append(login)
+        } clearLogin: {
+          XCTFail()
         }
 
         let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
