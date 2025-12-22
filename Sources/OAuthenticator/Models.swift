@@ -88,13 +88,20 @@ public struct AppCredentials: Codable, Hashable, Sendable {
 public struct LoginStorage: Sendable {
 	public typealias RetrieveLogin = @Sendable () async throws -> Login?
 	public typealias StoreLogin = @Sendable (Login) async throws -> Void
+	public typealias ClearLogin = @Sendable () async throws -> Void
 
 	public let retrieveLogin: RetrieveLogin
 	public let storeLogin: StoreLogin
+	public let clearLogin: ClearLogin
 
-	public init(retrieveLogin: @escaping RetrieveLogin, storeLogin: @escaping StoreLogin) {
+	public init(
+		retrieveLogin: @escaping RetrieveLogin,
+		storeLogin: @escaping StoreLogin,
+		clearLogin: @escaping ClearLogin
+	) {
 		self.retrieveLogin = retrieveLogin
 		self.storeLogin = storeLogin
+		self.clearLogin = clearLogin
 	}
 }
 
