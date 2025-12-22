@@ -1,9 +1,9 @@
-import XCTest
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
-
 import OAuthenticator
+import XCTest
+
+#if canImport(FoundationNetworking)
+	import FoundationNetworking
+#endif
 
 enum AuthenticatorTestsError: Error {
 	case disabled
@@ -14,8 +14,7 @@ final class MockURLResponseProvider: @unchecked Sendable {
 	private(set) var requests: [URLRequest] = []
 	private let lock = NSLock()
 
-	init() {
-	}
+	init() {}
 
 	func response(for request: URLRequest) throws -> (Data, URLResponse) {
 		try lock.withLock {
@@ -28,10 +27,15 @@ final class MockURLResponseProvider: @unchecked Sendable {
 	var responseProvider: URLResponseProvider {
 		return { try self.response(for: $0) }
 	}
-	
+
 	static let dummyResponse: (Data, URLResponse) = (
 		"hello".data(using: .utf8)!,
-		URLResponse(url: URL(string: "https://test.com")!, mimeType: nil, expectedContentLength: 5, textEncodingName: nil)
+		URLResponse(
+			url: URL(string: "https://test.com")!,
+			mimeType: nil,
+			expectedContentLength: 5,
+			textEncodingName: nil
+		)
 	)
 }
 
@@ -49,12 +53,16 @@ final class AuthenticatorTests: XCTestCase {
 	}
 
 	@Sendable
-	private static func disabledAuthorizationURLProvider(parameters: TokenHandling.AuthorizationURLParameters) throws -> URL {
+	private static func disabledAuthorizationURLProvider(
+		parameters: TokenHandling.AuthorizationURLParameters
+	) throws -> URL {
 		throw AuthenticatorTestsError.disabled
 	}
 
 	@Sendable
-	private static func disabledLoginProvider(parameters: TokenHandling.LoginProviderParameters) throws -> Login {
+	private static func disabledLoginProvider(parameters: TokenHandling.LoginProviderParameters)
+		throws -> Login
+	{
 		throw AuthenticatorTestsError.disabled
 	}
 
@@ -88,9 +96,11 @@ final class AuthenticatorTests: XCTestCase {
 			return Login(token: "TOKEN")
 		}
 
-		let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
-										  loginProvider: loginProvider,
-										  responseStatusProvider: TokenHandling.allResponsesValid)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
 		let retrieveTokenExp = expectation(description: "get token")
 		let storeTokenExp = expectation(description: "save token")
@@ -103,21 +113,14 @@ final class AuthenticatorTests: XCTestCase {
 			XCTAssertEqual($0, Login(token: "TOKEN"))
 
 			storeTokenExp.fulfill()
+		} clearLogin: {
+			XCTFail()
 		}
 
 		let config = Authenticator.Configuration(
 			appCredentials: Self.mockCredentials,
 			loginStorage: storage,
-//			loginStorage: nil,
 			tokenHandling: tokenHandling,
-//			tokenHandling: TokenHandling(
-//				authorizationURLProvider: { _ in
-//					throw AuthenticatorTestsError.disabled
-//				},
-//				loginProvider: { _, _, _, _ in
-//					throw AuthenticatorTestsError.disabled
-//				}
-//			),
 			userAuthenticator: mockUserAuthenticator
 		)
 
@@ -125,7 +128,9 @@ final class AuthenticatorTests: XCTestCase {
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(
+			of: [retrieveTokenExp, userAuthExp, storeTokenExp, authedLoadExp], timeout: 1.0,
+			enforceOrder: true)
 	}
 
 	@MainActor
@@ -152,12 +157,16 @@ final class AuthenticatorTests: XCTestCase {
 			return Login(token: "TOKEN")
 		} storeLogin: { _ in
 			XCTFail()
+		} clearLogin: {
+			XCTFail()
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
@@ -187,10 +196,12 @@ final class AuthenticatorTests: XCTestCase {
 			return Login(token: "REFRESHED")
 		}
 
-		let tokenHandling = TokenHandling(authorizationURLProvider: Self.disabledAuthorizationURLProvider,
-										  loginProvider: Self.disabledLoginProvider,
-										  refreshProvider: refreshProvider,
-										  responseStatusProvider: TokenHandling.allResponsesValid)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
 		let retrieveTokenExp = expectation(description: "get token")
 		let storeTokenExp = expectation(description: "save token")
@@ -198,24 +209,99 @@ final class AuthenticatorTests: XCTestCase {
 		let storage = LoginStorage {
 			retrieveTokenExp.fulfill()
 
-			return Login(accessToken: Token(value: "EXPIRED", expiry: .distantPast),
-						 refreshToken: Token(value: "REFRESH"))
+			return Login(
+				accessToken: Token(value: "EXPIRED", expiry: .distantPast),
+				refreshToken: Token(value: "REFRESH")
+			)
 		} storeLogin: { login in
 			storeTokenExp.fulfill()
 
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
+		} clearLogin: {
+			XCTFail()
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
-		await fulfillment(of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0, enforceOrder: true)
+		await fulfillment(
+			of: [retrieveTokenExp, refreshExp, storeTokenExp, authedLoadExp], timeout: 1.0,
+			enforceOrder: true)
+	}
+
+	@MainActor
+	func testExpiredTokenRefreshFailing() async throws {
+		let mockLoader: URLResponseProvider = { request in
+			// We should never load the resource, since we failed to refresh the session:
+			XCTFail()
+
+			return MockURLResponseProvider.dummyResponse
+		}
+
+		let refreshExp = expectation(description: "refresh")
+		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
+			XCTAssertEqual(login.accessToken.value, "EXPIRED")
+			XCTAssertEqual(login.refreshToken?.value, "REFRESH")
+
+			refreshExp.fulfill()
+
+			// Fail the refresh attempt, e.g., the refresh token has expired:
+			throw AuthenticatorError.refreshNotPossible
+		}
+
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let retrieveTokenExp = expectation(description: "get token")
+		let clearTokenExp = expectation(description: "clear token")
+
+		let storage = LoginStorage {
+			retrieveTokenExp.fulfill()
+
+			return Login(
+				accessToken: Token(value: "EXPIRED", expiry: .distantPast),
+				refreshToken: Token(value: "REFRESH")
+			)
+		} storeLogin: { login in
+			XCTFail()
+		} clearLogin: {
+			clearTokenExp.fulfill()
+		}
+
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
+
+		do {
+			let (_, _) = try await auth.response(
+				for: URLRequest(url: URL(string: "https://example.com")!))
+
+			XCTFail()
+		} catch AuthenticatorError.refreshNotPossible {
+			// we expect this error to be thrown
+		} catch {
+			XCTFail()
+		}
+
+		await fulfillment(
+			of: [retrieveTokenExp, refreshExp, clearTokenExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	@MainActor
@@ -230,9 +316,11 @@ final class AuthenticatorTests: XCTestCase {
 			return Login(token: "TOKEN")
 		}
 
-		let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
-										  loginProvider: loginProvider,
-										  responseStatusProvider: TokenHandling.allResponsesValid)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
 		let userAuthExp = expectation(description: "user auth")
 		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
@@ -241,10 +329,12 @@ final class AuthenticatorTests: XCTestCase {
 			return URL(string: "my://login")!
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 tokenHandling: tokenHandling,
-												 mode: .manualOnly,
-												 userAuthenticator: mockUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			tokenHandling: tokenHandling,
+			mode: .manualOnly,
+			userAuthenticator: mockUserAuthenticator
+		)
 
 		let loadExp = expectation(description: "load url")
 		let mockLoader: URLResponseProvider = { request in
@@ -256,7 +346,9 @@ final class AuthenticatorTests: XCTestCase {
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		do {
-			let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+			let (_, _) = try await auth.response(
+				for: URLRequest(url: URL(string: "https://example.com")!)
+			)
 
 			XCTFail()
 		} catch AuthenticatorError.manualAuthenticationRequired {
@@ -269,45 +361,47 @@ final class AuthenticatorTests: XCTestCase {
 		try await auth.authenticate()
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		
+
 		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
 	}
 
 	@MainActor
-    func testManualAuthenticationWithSuccessResult() async throws {
-        let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+	func testManualAuthenticationWithSuccessResult() async throws {
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
 			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
-        }
+		}
 
-        let loginProvider: TokenHandling.LoginProvider = { params in
+		let loginProvider: TokenHandling.LoginProvider = { params in
 			XCTAssertEqual(params.redirectURL, URL(string: "my://login")!)
 
-            return Login(token: "TOKEN")
-        }
+			return Login(token: "TOKEN")
+		}
 
-        let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
-                                          loginProvider: loginProvider,
-                                          responseStatusProvider: TokenHandling.allResponsesValid)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
-        let userAuthExp = expectation(description: "user auth")
-        let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
-            userAuthExp.fulfill()
+		let userAuthExp = expectation(description: "user auth")
+		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+			userAuthExp.fulfill()
 
-            return URL(string: "my://login")!
-        }
-        
-        // This is the callback to obtain authentication results
-        var authenticatedLogin: Login?
-        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
-            switch result {
-                case .failure(_):
-                     XCTFail()
-                case .success(let login):
-                    authenticatedLogin = login
-            }
-        }
-        
-        // Configure Authenticator with result callback
+			return URL(string: "my://login")!
+		}
+
+		// This is the callback to obtain authentication results
+		var authenticatedLogin: Login?
+		let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
+			switch result {
+			case .failure(_):
+				XCTFail()
+			case .success(let login):
+				authenticatedLogin = login
+			}
+		}
+
+		// Configure Authenticator with result callback
 		let config = Authenticator.Configuration(
 			appCredentials: Self.mockCredentials,
 			tokenHandling: tokenHandling,
@@ -316,57 +410,59 @@ final class AuthenticatorTests: XCTestCase {
 			authenticationStatusHandler: authenticationCallback
 		)
 
-        let loadExp = expectation(description: "load url")
-        let mockLoader: URLResponseProvider = { request in
-            loadExp.fulfill()
+		let loadExp = expectation(description: "load url")
+		let mockLoader: URLResponseProvider = { request in
+			loadExp.fulfill()
 
-            return MockURLResponseProvider.dummyResponse
-        }
+			return MockURLResponseProvider.dummyResponse
+		}
 
-        let auth = Authenticator(config: config, urlLoader: mockLoader)
-        // Explicitly authenticate and grab Login information after
-        try await auth.authenticate()
-        
-        // Ensure our authenticatedLogin objet is available and contains the proper Token
-        XCTAssertNotNil(authenticatedLogin)
-        XCTAssertEqual(authenticatedLogin!, Login(token:"TOKEN"))
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
+		// Explicitly authenticate and grab Login information after
+		try await auth.authenticate()
 
-        let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-        
+		// Ensure our authenticatedLogin objet is available and contains the proper Token
+		XCTAssertNotNil(authenticatedLogin)
+		XCTAssertEqual(authenticatedLogin!, Login(token: "TOKEN"))
+
+		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+
 		await fulfillment(of: [userAuthExp, loadExp], timeout: 1.0, enforceOrder: true)
-    }
+	}
 
-    // Test AuthenticationResultHandler with a failed UserAuthenticator
+	// Test AuthenticationResultHandler with a failed UserAuthenticator
 	@MainActor
-    func testManualAuthenticationWithFailedResult() async throws {
-        let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+	func testManualAuthenticationWithFailedResult() async throws {
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
 			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
-        }
+		}
 
-        let loginProvider: TokenHandling.LoginProvider = { params in
+		let loginProvider: TokenHandling.LoginProvider = { params in
 			XCTAssertEqual(params.redirectURL, URL(string: "my://login")!)
 
-            return Login(token: "TOKEN")
-        }
+			return Login(token: "TOKEN")
+		}
 
-        let tokenHandling = TokenHandling(authorizationURLProvider: urlProvider,
-                                          loginProvider: loginProvider,
-                                          responseStatusProvider: TokenHandling.allResponsesValid)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
-        // This is the callback to obtain authentication results
-        var authenticatedLogin: Login?
-        let failureAuth = expectation(description: "auth failure")
-        let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
-            switch result {
-                case .failure(_):
-                    failureAuth.fulfill()
-                    authenticatedLogin = nil
-                case .success(_):
-                    XCTFail()
-            }
-        }
-        
-        // Configure Authenticator with result callback
+		// This is the callback to obtain authentication results
+		var authenticatedLogin: Login?
+		let failureAuth = expectation(description: "auth failure")
+		let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
+			switch result {
+			case .failure(_):
+				failureAuth.fulfill()
+				authenticatedLogin = nil
+			case .success(_):
+				XCTFail()
+			}
+		}
+
+		// Configure Authenticator with result callback
 		let config = Authenticator.Configuration(
 			appCredentials: Self.mockCredentials,
 			tokenHandling: tokenHandling,
@@ -374,24 +470,22 @@ final class AuthenticatorTests: XCTestCase {
 			userAuthenticator: Authenticator.failingUserAuthenticator,
 			authenticationStatusHandler: authenticationCallback
 		)
-        
-        let auth = Authenticator(config: config, urlLoader: nil)
-        do {
-            // Explicitly authenticate and grab Login information after
-            try await auth.authenticate()
-            
-            // Ensure our authenticatedLogin objet is *not* available
-            XCTAssertNil(authenticatedLogin)
-        }
-        catch let error as AuthenticatorError {
-            XCTAssertEqual(error, AuthenticatorError.failingAuthenticatorUsed)
-        }
-        catch {
-            throw error
-        }
+
+		let auth = Authenticator(config: config, urlLoader: nil)
+		do {
+			// Explicitly authenticate and grab Login information after
+			try await auth.authenticate()
+
+			// Ensure our authenticatedLogin objet is *not* available
+			XCTAssertNil(authenticatedLogin)
+		} catch let error as AuthenticatorError {
+			XCTAssertEqual(error, AuthenticatorError.failingAuthenticatorUsed)
+		} catch {
+			throw error
+		}
 
 		await fulfillment(of: [failureAuth], timeout: 1.0, enforceOrder: true)
-    }
+	}
 
 	func testUnauthorizedRequestRefreshes() async throws {
 		let requestedURL = URL(string: "https://example.com")!
@@ -400,30 +494,46 @@ final class AuthenticatorTests: XCTestCase {
 		let mockData = "hello".data(using: .utf8)!
 
 		mockLoader.responses = [
-			.success((Data(), HTTPURLResponse(url: requestedURL, statusCode: 401, httpVersion: nil, headerFields: nil)!)),
-			.success((mockData, HTTPURLResponse(url: requestedURL, statusCode: 200, httpVersion: nil, headerFields: nil)!)),
+			.success(
+				(
+					Data(),
+					HTTPURLResponse(url: requestedURL, statusCode: 401, httpVersion: nil, headerFields: nil)!
+				)),
+			.success(
+				(
+					mockData,
+					HTTPURLResponse(url: requestedURL, statusCode: 200, httpVersion: nil, headerFields: nil)!
+				)),
 		]
 
 		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
 			return Login(token: "REFRESHED")
 		}
 
-		let tokenHandling = TokenHandling(authorizationURLProvider: Self.disabledAuthorizationURLProvider,
-										  loginProvider: Self.disabledLoginProvider,
-										  refreshProvider: refreshProvider)
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider
+		)
 
 		let storage = LoginStorage {
 			// ensure we actually try this one
-			return Login(accessToken: Token(value: "EXPIRED", expiry: .distantFuture),
-						 refreshToken: Token(value: "REFRESH"))
+			return Login(
+				accessToken: Token(value: "EXPIRED", expiry: .distantFuture),
+				refreshToken: Token(value: "REFRESH")
+			)
 		} storeLogin: { login in
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
+		} clearLogin: {
+			XCTFail()
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader.responseProvider)
 
@@ -445,81 +555,97 @@ final class AuthenticatorTests: XCTestCase {
 
 	@available(macOS 13.0, macCatalyst 16.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
 	@MainActor
-    func testTokenExpiredAfterUseRefresh() async throws {
+	func testTokenExpiredAfterUseRefresh() async throws {
 		var sentRequests: [URLRequest] = []
-
-        let mockLoader: URLResponseProvider = { @MainActor request in
+		let mockLoader: URLResponseProvider = { @MainActor request in
 			sentRequests.append(request)
-            return MockURLResponseProvider.dummyResponse
-        }
+			return MockURLResponseProvider.dummyResponse
+		}
 
-        var refreshedLogins: [Login] = []
-        let refreshProvider: TokenHandling.RefreshProvider = { @MainActor login, _, _ in
+		var refreshedLogins: [Login] = []
+		let refreshProvider: TokenHandling.RefreshProvider = { @MainActor login, _, _ in
 			refreshedLogins.append(login)
 
-            return Login(token: "REFRESHED")
-        }
+			return Login(token: "REFRESHED")
+		}
 
-        let tokenHandling = TokenHandling(
-            authorizationURLProvider: Self.disabledAuthorizationURLProvider,
-            loginProvider: Self.disabledLoginProvider,
-            refreshProvider: refreshProvider,
-            responseStatusProvider: TokenHandling.allResponsesValid
-        )
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
 
-        let storedLogin = Login(
-            accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(1)),
-            refreshToken: Token(value: "REFRESH")
-        )
-        var loadLoginCount = 0
-        var savedLogins: [Login] = []
+		let storedLogin = Login(
+			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(1)),
+			refreshToken: Token(value: "REFRESH")
+		)
+
+		var loadLoginCount = 0
+		var savedLogins: [Login] = []
 		let storage = LoginStorage { @MainActor in
 			loadLoginCount += 1
 
-            return storedLogin
-        } storeLogin: { @MainActor login in
-            savedLogins.append(login)
-        }
+			return storedLogin
+		} storeLogin: { @MainActor login in
+			savedLogins.append(login)
+		} clearLogin: {
+			XCTFail()
+		}
 
-        let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-                                                 loginStorage: storage,
-                                                 tokenHandling: tokenHandling,
-                                                 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
 
-        let auth = Authenticator(config: config, urlLoader: mockLoader)
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
-        let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		let sentRequestsOne = sentRequests
 
-        XCTAssertEqual(sentRequestsOne.count, 1, "First request should be sent")
-        XCTAssertEqual(sentRequestsOne.first?.value(forHTTPHeaderField: "Authorization"), "Bearer EXPIRE SOON", "Non expired token should be used for first request")
-        XCTAssertTrue(refreshedLogins.isEmpty, "Token should not be refreshed after first request")
-        XCTAssertEqual(loadLoginCount, 1, "Login should be loaded from storage once")
-        XCTAssertTrue(savedLogins.isEmpty, "Login storage should not be updated after first request")
+		XCTAssertEqual(sentRequestsOne.count, 1, "First request should be sent")
+		XCTAssertEqual(
+			sentRequestsOne.first?.value(forHTTPHeaderField: "Authorization"), "Bearer EXPIRE SOON",
+			"Non expired token should be used for first request")
+		XCTAssertTrue(refreshedLogins.isEmpty, "Token should not be refreshed after first request")
+		XCTAssertEqual(loadLoginCount, 1, "Login should be loaded from storage once")
+		XCTAssertTrue(savedLogins.isEmpty, "Login storage should not be updated after first request")
 
-        // Let the token expire
+		// Let the token expire
 		try await Task.sleep(for: .seconds(1))
 
-        let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		let sentRequestsTwo = sentRequests
 
-        XCTAssertEqual(refreshedLogins.count, 1, "Token should be refreshed")
-        XCTAssertEqual(refreshedLogins.first?.accessToken.value, "EXPIRE SOON", "Expired token should be passed to refresh call")
-        XCTAssertEqual(refreshedLogins.first?.refreshToken?.value, "REFRESH", "Refresh token should be passed to refresh call")
-        XCTAssertEqual(loadLoginCount, 2, "New login should be loaded from storage")
-        XCTAssertEqual(sentRequestsTwo.count, 2, "Second request should be sent")
-        let secondRequest = sentRequestsTwo.dropFirst().first
-        XCTAssertEqual(secondRequest?.value(forHTTPHeaderField: "Authorization"), "Bearer REFRESHED", "Refreshed token should be used for second request")
-        XCTAssertEqual(savedLogins.first?.accessToken.value, "REFRESHED", "Refreshed token should be saved to storage")
+		XCTAssertEqual(refreshedLogins.count, 1, "Token should be refreshed")
+		XCTAssertEqual(
+			refreshedLogins.first?.accessToken.value, "EXPIRE SOON",
+			"Expired token should be passed to refresh call")
+		XCTAssertEqual(
+			refreshedLogins.first?.refreshToken?.value, "REFRESH",
+			"Refresh token should be passed to refresh call")
+		XCTAssertEqual(loadLoginCount, 2, "New login should be loaded from storage")
+		XCTAssertEqual(sentRequestsTwo.count, 2, "Second request should be sent")
+		let secondRequest = sentRequestsTwo.dropFirst().first
+		XCTAssertEqual(
+			secondRequest?.value(forHTTPHeaderField: "Authorization"), "Bearer REFRESHED",
+			"Refreshed token should be used for second request")
+		XCTAssertEqual(
+			savedLogins.first?.accessToken.value, "REFRESHED",
+			"Refreshed token should be saved to storage")
 
-        let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		let sentRequestsThree = sentRequests
 
-        XCTAssertEqual(refreshedLogins.count, 1, "No additional refreshes should happen")
-        XCTAssertEqual(loadLoginCount, 2, "No additional login loads should happen")
-        XCTAssertEqual(sentRequestsThree.count, 3, "Third request should be sent")
-        let thirdRequest = sentRequestsThree.dropFirst(2).first
-        XCTAssertEqual(thirdRequest?.value(forHTTPHeaderField: "Authorization"), "Bearer REFRESHED", "Refreshed token should be used for third request")
-        XCTAssertEqual(savedLogins.count, 1, "No additional logins should be saved to storage")
-    }
+		XCTAssertEqual(refreshedLogins.count, 1, "No additional refreshes should happen")
+		XCTAssertEqual(loadLoginCount, 2, "No additional login loads should happen")
+		XCTAssertEqual(sentRequestsThree.count, 3, "Third request should be sent")
+		let thirdRequest = sentRequestsThree.dropFirst(2).first
+		XCTAssertEqual(
+			thirdRequest?.value(forHTTPHeaderField: "Authorization"), "Bearer REFRESHED",
+			"Refreshed token should be used for third request")
+		XCTAssertEqual(savedLogins.count, 1, "No additional logins should be saved to storage")
+	}
 }
