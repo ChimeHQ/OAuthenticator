@@ -260,10 +260,8 @@ extension Authenticator {
 				await self.config.authenticationStatusHandler?(.success(login))
 		}
 		catch let authenticatorError as AuthenticatorError {
-				try await clearLogin()
-
 				await self.config.authenticationStatusHandler?(.failure(authenticatorError))
-				
+
 				// Rethrow error
 				throw authenticatorError
 		}
@@ -351,6 +349,8 @@ extension Authenticator {
 
 			return login
 		} catch {
+			try await clearLogin()
+
 			throw error
 		}
 	}
