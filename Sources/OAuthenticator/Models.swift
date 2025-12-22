@@ -41,11 +41,11 @@ public struct Login: Codable, Hashable, Sendable {
 	public var accessToken: Token
 	public var refreshToken: Token?
 
-    // User authorized scopes
-    public var scopes: String?
+  // User authorized scopes
+  public var scopes: String?
 	public var issuingServer: String?
 
-    public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil, issuingServer: String? = nil) {
+  public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil, issuingServer: String? = nil) {
 		self.accessToken = accessToken
 		self.refreshToken = refreshToken
 		self.scopes = scopes

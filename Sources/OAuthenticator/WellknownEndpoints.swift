@@ -64,7 +64,6 @@ public struct ServerMetadata: Codable, Hashable, Sendable {
 }
 
 // See: https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/
-
 public struct ClientMetadata: Hashable, Codable, Sendable {
 	public let clientId: String
 	public let scope: String

@@ -18,8 +18,8 @@ public enum AuthenticatorError: Error, Hashable {
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
 	case missingRedirectURI
-    case missingRefreshToken
-    case missingScope
+	case missingRefreshToken
+	case missingScope
 	case failingAuthenticatorUsed
 	case dpopTokenExpected(String)
 	case parRequestURIMissing
@@ -31,7 +31,7 @@ public enum AuthenticatorError: Error, Hashable {
 /// Manage state required to executed authenticated URLRequests.
 public actor Authenticator {
 	public typealias UserAuthenticator = @Sendable (URL, String) async throws -> URL
-    public typealias AuthenticationStatusHandler = @Sendable (Result<Login, AuthenticatorError>) async -> Void
+	public typealias AuthenticationStatusHandler = @Sendable (Result<Login, AuthenticatorError>) async -> Void
 
 	/// A `UserAuthenticator` that always fails. Useful as a placeholder
 	/// for testing and for doing manual authentication with an external
@@ -73,8 +73,8 @@ public actor Authenticator {
 		public let userAuthenticator: UserAuthenticator
 		public let mode: UserAuthenticationMode
 
-        // Specify an authenticationResult closure to obtain result and grantedScope
-        public let authenticationStatusHandler: AuthenticationStatusHandler?
+		// Specify an authenticationResult closure to obtain result and grantedScope
+		public let authenticationStatusHandler: AuthenticationStatusHandler?
 
 #if canImport(AuthenticationServices)
 		@available(tvOS 16.0, macCatalyst 13.0, *)
@@ -94,7 +94,7 @@ public actor Authenticator {
 			// ASWebAuthenticationSession.userAuthenticator directly here
 			// with GlobalActorIsolatedTypesUsability, but it isn't working
 			self.userAuthenticator = { try await ASWebAuthenticationSession.userAuthenticator(url: $0, scheme: $1) }
-            self.authenticationStatusHandler = authenticationStatusHandler
+			self.authenticationStatusHandler = authenticationStatusHandler
 		}
 #endif
 
@@ -111,7 +111,7 @@ public actor Authenticator {
 			self.tokenHandling = tokenHandling
 			self.mode = mode
 			self.userAuthenticator = userAuthenticator
-            self.authenticationStatusHandler = authenticationStatusHandler
+			self.authenticationStatusHandler = authenticationStatusHandler
 		}
 	}
 
@@ -214,12 +214,12 @@ extension Authenticator {
 
 		try await storage.storeLogin(login)
 	}
-	
+
 	private func clearLogin() async {
 		guard let storage = config.loginStorage else { return }
-		
+
 		let invalidLogin = Login(token: "invalid", validUntilDate: .distantPast)
-		
+
 		do {
 			try await storage.storeLogin(invalidLogin)
 		} catch {
@@ -250,25 +250,25 @@ extension Authenticator {
 	private func loginTaskResult(manual: Bool, userAuthenticator: @escaping UserAuthenticator) async throws -> Login {
 		let task = activeTokenTask ?? makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
 
-        var login: Login
-        do {
-            do {
-                login = try await loginFromTask(task: task)
-            } catch AuthenticatorError.tokenInvalid {
-                let newTask = makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
-                login = try await loginFromTask(task: newTask)
-            }
+		var login: Login
+		do {
+				do {
+						login = try await loginFromTask(task: task)
+				} catch AuthenticatorError.tokenInvalid {
+						let newTask = makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
+						login = try await loginFromTask(task: newTask)
+				}
 
-            // Inform authenticationResult closure of new login information
-            await self.config.authenticationStatusHandler?(.success(login))
-        }
-        catch let authenticatorError as AuthenticatorError {
-            await self.config.authenticationStatusHandler?(.failure(authenticatorError))
+				// Inform authenticationResult closure of new login information
+				await self.config.authenticationStatusHandler?(.success(login))
+		}
+		catch let authenticatorError as AuthenticatorError {
+				await self.config.authenticationStatusHandler?(.failure(authenticatorError))
 
-            // Rethrow error
-            throw authenticatorError
-        }
-        
+				// Rethrow error
+				throw authenticatorError
+		}
+
 		return login
 	}
 
@@ -347,13 +347,13 @@ extension Authenticator {
 
 		do {
 			let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: nil) })
-			
+
 			try await storeLogin(login)
-			
+
 			return login
 		} catch {
 			await clearLogin()
-			
+
 			throw error
 		}
 	}
@@ -362,7 +362,7 @@ extension Authenticator {
 		guard let pkce = config.tokenHandling.pkce else {
 			throw AuthenticatorError.pkceRequired
 		}
-		
+
 		let challenge = pkce.challenge
 		let scopes = config.appCredentials.scopes.joined(separator: " ")
 		let callbackURI = config.appCredentials.callbackURL
@@ -415,7 +415,7 @@ extension Authenticator {
 		guard let generator = config.tokenHandling.dpopJWTGenerator else {
 			return try await urlLoader(request)
 		}
-		
+
 		guard let pkce = config.tokenHandling.pkce else {
 			throw AuthenticatorError.pkceRequired
 		}

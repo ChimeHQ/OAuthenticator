@@ -91,7 +91,7 @@ public enum GitHub {
 			urlBuilder.queryItems = [
 				URLQueryItem(name: "client_id", value: credentials.clientId),
 				URLQueryItem(name: "redirect_uri", value: credentials.callbackURL.absoluteString),
-                URLQueryItem(name: "scope", value: credentials.scopeString),
+				URLQueryItem(name: "scope", value: credentials.scopeString),
 			]
 
 			if let state = parameters.state {
