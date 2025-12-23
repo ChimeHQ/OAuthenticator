@@ -192,8 +192,12 @@ public actor Authenticator {
 	}
 
 	/// Manually perform user authentication, if required.
-	public func authenticate(with userAuthenticator: UserAuthenticator? = nil) async throws {
-		let _ = try await loginTaskResult(manual: true, userAuthenticator: userAuthenticator ?? config.userAuthenticator)
+	@discardableResult
+	public func authenticate(with userAuthenticator: UserAuthenticator? = nil) async throws -> Login {
+		return try await loginTaskResult(
+			manual: true,
+			userAuthenticator: userAuthenticator ?? config.userAuthenticator
+		)
 	}
 }
 
