@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 
 import OAuthenticator
@@ -16,7 +19,8 @@ struct BlueskyTests {
 		let handling = Bluesky.tokenHandling(
 			account: "placeholder",
 			server: metadata,
-			jwtGenerator: { _ in "" }
+			jwtGenerator: { _ in "" },
+			pkce: PKCEVerifier()
 		)
 
 		let provider: URLResponseProvider = { request in
