@@ -25,12 +25,12 @@ struct WellKnownTests {
 
 			return (
 				data,
-				URLResponse(
+				HTTPURLResponse(
 					url: request.url!,
-					mimeType: "application/json",
-					expectedContentLength: data.count,
-					textEncodingName: "utf-8"
-				)
+					statusCode: 200,
+					httpVersion: nil,
+					headerFields: ["Content-Type": "application/json"]
+				)!
 			)
 		}
 
@@ -58,12 +58,12 @@ struct WellKnownTests {
 
 			return (
 				data,
-				URLResponse(
+				HTTPURLResponse(
 					url: request.url!,
-					mimeType: "application/json",
-					expectedContentLength: data.count,
-					textEncodingName: "utf-8"
-				)
+					statusCode: 200,
+					httpVersion: nil,
+					headerFields: ["Content-Type": "application/json"]
+				)!
 			)
 		}
 
@@ -92,12 +92,12 @@ struct WellKnownTests {
 
 			return (
 				data,
-				URLResponse(
+				HTTPURLResponse(
 					url: request.url!,
-					mimeType: "application/json",
-					expectedContentLength: data.count,
-					textEncodingName: "utf-8"
-				)
+					statusCode: 200,
+					httpVersion: nil,
+					headerFields: ["Content-Type": "application/json"]
+				)!
 			)
 		}
 
