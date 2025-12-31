@@ -482,9 +482,127 @@ final class AuthenticatorTests: XCTestCase {
 			return Login(accessToken: Token(value: "EXPIRED", expiry: .distantFuture),
 						 refreshToken: Token(value: "REFRESH"))
 		} storeLogin: { login in
+<<<<<<< HEAD
 			XCTAssertEqual(login.accessToken.value, "REFRESHED")
 		} clearLogin: {
 			XCTFail()
+||||||| parent of 95957dc (Increase delay for slower systems)
+			#expect(login.accessToken.value == "REFRESHED")
+		}
+
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: mockLoader.responseProvider)
+
+		let (data, _) = try await auth.response(for: URLRequest(url: requestedURL))
+
+		#expect(data == mockData)
+		#expect(mockLoader.requests.count == 2)
+		#expect(mockLoader.requests[0].allHTTPHeaderFields!["Authorization"] == "Bearer EXPIRED")
+		#expect(mockLoader.requests[1].allHTTPHeaderFields!["Authorization"] == "Bearer REFRESHED")
+	}
+
+	@available(macOS 13.0, macCatalyst 16.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+	@MainActor
+	@Test
+	func tokenExpiredAfterUseRefresh() async throws {
+		var sentRequests: [URLRequest] = []
+
+		let mockLoader: URLResponseProvider = { @MainActor request in
+			sentRequests.append(request)
+			return MockURLResponseProvider.dummyResponse
+		}
+
+		var refreshedLogins: [Login] = []
+		let refreshProvider: TokenHandling.RefreshProvider = { @MainActor login, _, _ in
+			refreshedLogins.append(login)
+
+			return Login(token: "REFRESHED")
+		}
+
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let storedLogin = Login(
+			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(1)),
+			refreshToken: Token(value: "REFRESH")
+		)
+		var loadLoginCount = 0
+		var savedLogins: [Login] = []
+		let storage = LoginStorage { @MainActor in
+			loadLoginCount += 1
+
+			return storedLogin
+		} storeLogin: { @MainActor login in
+			savedLogins.append(login)
+=======
+			#expect(login.accessToken.value == "REFRESHED")
+		}
+
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: mockLoader.responseProvider)
+
+		let (data, _) = try await auth.response(for: URLRequest(url: requestedURL))
+
+		#expect(data == mockData)
+		#expect(mockLoader.requests.count == 2)
+		#expect(mockLoader.requests[0].allHTTPHeaderFields!["Authorization"] == "Bearer EXPIRED")
+		#expect(mockLoader.requests[1].allHTTPHeaderFields!["Authorization"] == "Bearer REFRESHED")
+	}
+
+	@available(macOS 13.0, macCatalyst 16.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+	@MainActor
+	@Test
+	func tokenExpiredAfterUseRefresh() async throws {
+		var sentRequests: [URLRequest] = []
+
+		let mockLoader: URLResponseProvider = { @MainActor request in
+			sentRequests.append(request)
+			return MockURLResponseProvider.dummyResponse
+		}
+
+		var refreshedLogins: [Login] = []
+		let refreshProvider: TokenHandling.RefreshProvider = { @MainActor login, _, _ in
+			refreshedLogins.append(login)
+
+			return Login(token: "REFRESHED")
+		}
+
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let storedLogin = Login(
+			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(10)),
+			refreshToken: Token(value: "REFRESH")
+		)
+		var loadLoginCount = 0
+		var savedLogins: [Login] = []
+		let storage = LoginStorage { @MainActor in
+			loadLoginCount += 1
+
+			return storedLogin
+		} storeLogin: { @MainActor login in
+			savedLogins.append(login)
+>>>>>>> 95957dc (Increase delay for slower systems)
 		}
 
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
@@ -566,8 +684,16 @@ final class AuthenticatorTests: XCTestCase {
         XCTAssertEqual(loadLoginCount, 1, "Login should be loaded from storage once")
         XCTAssertTrue(savedLogins.isEmpty, "Login storage should not be updated after first request")
 
+<<<<<<< HEAD
         // Let the token expire
 		try await Task.sleep(for: .seconds(1))
+||||||| parent of 95957dc (Increase delay for slower systems)
+		// Let the token expire
+		try await Task.sleep(for: .seconds(1))
+=======
+		// Let the token expire
+		try await Task.sleep(for: .seconds(10))
+>>>>>>> 95957dc (Increase delay for slower systems)
 
         let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		let sentRequestsTwo = sentRequests
