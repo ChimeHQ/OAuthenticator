@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 
 import OAuthenticator
@@ -12,11 +15,14 @@ struct BlueskyTests {
 
 		let data = try #require(metadataContent.data(using: .utf8))
 
+		let verifier = PKCEVerifier(hash: "placeholder", hasher: { $0 })
+
 		let metadata = try JSONDecoder().decode(ServerMetadata.self, from: data)
 		let handling = Bluesky.tokenHandling(
 			account: "placeholder",
 			server: metadata,
-			jwtGenerator: { _ in "" }
+			jwtGenerator: { _ in "" },
+			pkce: verifier
 		)
 
 		let provider: URLResponseProvider = { request in
@@ -36,7 +42,6 @@ struct BlueskyTests {
 			return (Data(payload.utf8), response)
 		}
 
-		let verifier = PKCEVerifier()
 		let params = TokenHandling.LoginProviderParameters(
 			authorizationURL: URL(string: "https://server-metadata.test/oauth/authorize")!,
 			credentials: AppCredentials(
