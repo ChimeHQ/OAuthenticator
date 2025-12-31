@@ -310,24 +310,12 @@ struct AuthenticatorTests {
 			return URL(string: "my://login")!
 		}
 
-		// This is the callback to obtain authentication results
-		var authenticatedLogin: Login?
-		let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
-			switch result {
-			case .failure(_):
-				#expect(Bool(false))
-			case .success(let login):
-				authenticatedLogin = login
-			}
-		}
-
 		// Configure Authenticator with result callback
 		let config = Authenticator.Configuration(
 			appCredentials: Self.mockCredentials,
 			tokenHandling: tokenHandling,
 			mode: .manualOnly,
-			userAuthenticator: mockUserAuthenticator,
-			authenticationStatusHandler: authenticationCallback
+			userAuthenticator: mockUserAuthenticator
 		)
 
 		let mockLoader: URLResponseProvider = { request in
@@ -338,10 +326,10 @@ struct AuthenticatorTests {
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 		// Explicitly authenticate and grab Login information after
-		try await auth.authenticate()
+		let login = try await auth.authenticate()
 
 		// Ensure our authenticatedLogin objet is available and contains the proper Token
-		#expect(authenticatedLogin == Login(token:"TOKEN"))
+		#expect(login == Login(token:"TOKEN"))
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
