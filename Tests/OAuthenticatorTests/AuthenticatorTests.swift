@@ -358,13 +358,10 @@ struct AuthenticatorTests {
 			responseStatusProvider: TokenHandling.allResponsesValid
 		)
 
-		// This is the callback to obtain authentication results
-		var authenticatedLogin: Login?
 		let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
 			switch result {
 			case .failure(_):
 				continutation.yield(1)
-				authenticatedLogin = nil
 			case .success(_):
 				#expect(Bool(false))
 			}
@@ -381,12 +378,9 @@ struct AuthenticatorTests {
 
 		let auth = Authenticator(config: config, urlLoader: nil)
 		await #expect(throws: AuthenticatorError.failingAuthenticatorUsed) {
-			// Explicitly authenticate and grab Login information after
+			// Explicitly authenticate
 			try await auth.authenticate()
 		}
-
-		// Ensure our authenticatedLogin objet is *not* available
-		#expect(authenticatedLogin == nil)
 
 		let events = try await stream.collect(finishing: continutation)
 		#expect(events == [1])
