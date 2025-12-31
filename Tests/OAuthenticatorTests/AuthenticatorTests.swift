@@ -461,7 +461,7 @@ struct AuthenticatorTests {
 		)
 
 		let storedLogin = Login(
-			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(1)),
+			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(10)),
 			refreshToken: Token(value: "REFRESH")
 		)
 		var loadLoginCount = 0
@@ -491,7 +491,7 @@ struct AuthenticatorTests {
 		#expect(savedLogins.isEmpty, "Login storage should not be updated after first request")
 
 		// Let the token expire
-		try await Task.sleep(for: .seconds(1))
+		try await Task.sleep(for: .seconds(10))
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		let sentRequestsTwo = sentRequests
