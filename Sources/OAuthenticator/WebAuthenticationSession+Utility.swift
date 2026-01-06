@@ -1,7 +1,6 @@
-#if canImport(AuthenticationServices)
+#if canImport(AuthenticationServices) && canImport(SwiftUI) && !os(macOS) && !targetEnvironment(macCatalyst)
 import AuthenticationServices
 import SwiftUI
-
 
 @available(macOS 13.3, iOS 16.4, watchOS 9.4, tvOS 16.4, *)
 extension WebAuthenticationSession {
