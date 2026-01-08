@@ -151,9 +151,24 @@ public enum Bluesky {
 			request.setValue("application/json", forHTTPHeaderField: "Accept")
 			request.httpBody = try JSONEncoder().encode(tokenRequest)
 
-			let (data, _) = try await params.responseProvider(request)
+			let (data, response) = try await params.responseProvider(request)
 
-			let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
+			guard let httpResponse = response as? HTTPURLResponse else {
+				throw AuthenticatorError.httpResponseExpected
+			}
+
+			guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
+				let payload = String(decoding: data, as: UTF8.self)
+				throw AuthenticatorError.tokenRequestFailed(payload)
+			}
+
+			let tokenResponse: TokenResponse
+			do {
+				tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
+			} catch {
+				let payload = String(decoding: data, as: UTF8.self)
+				throw AuthenticatorError.tokenRequestFailed(payload)
+			}
 
 			guard tokenResponse.token_type == "DPoP" else {
 				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)

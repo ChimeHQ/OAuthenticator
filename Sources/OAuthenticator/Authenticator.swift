@@ -26,6 +26,24 @@ public enum AuthenticatorError: Error, Hashable {
 	case stateTokenMismatch(String, String)
 	case issuingServerMismatch(String, String)
 	case pkceRequired
+	case tokenRequestFailed(String)
+}
+
+extension AuthenticatorError: LocalizedError {
+	public var errorDescription: String? {
+		switch self {
+		case .tokenRequestFailed(let message):
+			return "Token request failed: \(message)"
+		case .dpopTokenExpected(let value):
+			return "Expected DPoP token but received: \(value)"
+		case .stateTokenMismatch(let received, let expected):
+			return "State token mismatch. Received \(received), expected \(expected)."
+		case .issuingServerMismatch(let received, let expected):
+			return "Issuer mismatch. Received \(received), expected \(expected)."
+		default:
+			return nil
+		}
+	}
 }
 
 /// Manage state required to executed authenticated URLRequests.
