@@ -341,7 +341,13 @@ let tokenHandling = Bluesky.tokenHandling(
     account: account,
     server: serverConfig,
     client: clientConfig,
-    jwtGenerator: jwtGenerator
+    jwtGenerator: jwtGenerator,
+    validator: { tokenResponse, sub in
+         // after a token is issued, it is critical that the returned
+         // identity be resolved and its PDS match the issuing server
+         //
+         // check out draft-ietf-oauth-v2-1 section 7.3.1 for details
+    }
 )
 
 let config = Authenticator.Configuration(

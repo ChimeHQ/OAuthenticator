@@ -35,7 +35,7 @@ public enum Bluesky {
 		}
 	}
 
-	struct TokenResponse: Hashable, Sendable, Codable {
+	public struct TokenResponse: Hashable, Sendable, Codable {
 		public let access_token: String
 		public let refresh_token: String?
 		public let sub: String
@@ -51,13 +51,21 @@ public enum Bluesky {
 				issuingServer: issuingServer
 			)
 		}
+
+		public var accessToken: String { access_token }
+		public var refreshToken: String? { refresh_token }
+		public var tokenType: String { token_type }
+		public var expiresIn: Int { expires_in }
 	}
+
+	public typealias TokenSubscriberValidator = @Sendable (TokenResponse, _ issuer: String) async throws -> Bool
 
 	public static func tokenHandling(
 		account: String?,
 		server: ServerMetadata,
 		jwtGenerator: @escaping DPoPSigner.JWTGenerator,
-		pkce: PKCEVerifier
+		pkce: PKCEVerifier,
+		validator: @escaping TokenSubscriberValidator
 	) -> TokenHandling {
 		TokenHandling(
 			parConfiguration: PARConfiguration(
@@ -65,8 +73,8 @@ public enum Bluesky {
 				parameters: { if let account { ["login_hint": account] } else { [:] } }()
 			),
 			authorizationURLProvider: authorizionURLProvider(server: server),
-			loginProvider: loginProvider(server: server),
-			refreshProvider: refreshProvider(server: server),
+			loginProvider: loginProvider(server: server, validator: validator),
+			refreshProvider: refreshProvider(server: server, validator: validator),
 			dpopJWTGenerator: jwtGenerator,
 			pkce: pkce
 		)
@@ -76,13 +84,15 @@ public enum Bluesky {
 	public static func tokenHandling(
 		account: String?,
 		server: ServerMetadata,
-		jwtGenerator: @escaping DPoPSigner.JWTGenerator
+		jwtGenerator: @escaping DPoPSigner.JWTGenerator,
+		validator: @escaping TokenSubscriberValidator
 	) -> TokenHandling {
 		tokenHandling(
 			account: account,
 			server: server,
 			jwtGenerator: jwtGenerator,
-			pkce: PKCEVerifier()
+			pkce: PKCEVerifier(),
+			validator: validator
 		)
 	}
 #endif
@@ -108,7 +118,7 @@ public enum Bluesky {
 		}
 	}
 
-	private static func loginProvider(server: ServerMetadata) -> TokenHandling.LoginProvider {
+	private static func loginProvider(server: ServerMetadata, validator: @escaping TokenSubscriberValidator) -> TokenHandling.LoginProvider {
 		return { params in
 			// decode the params in the redirectURL
 			guard let redirectComponents = URLComponents(url: params.redirectURL, resolvingAgainstBaseURL: false) else {
@@ -163,11 +173,15 @@ public enum Bluesky {
 				throw AuthenticatorError.issuingServerMismatch(iss, server.issuer)
 			}
 
+			if try await validator(tokenResponse, server.issuer) == false {
+				throw AuthenticatorError.tokenInvalid
+			}
+
 			return tokenResponse.login(for: iss)
 		}
 	}
 
-	private static func refreshProvider(server: ServerMetadata) -> TokenHandling.RefreshProvider {
+	private static func refreshProvider(server: ServerMetadata, validator: @escaping TokenSubscriberValidator) -> TokenHandling.RefreshProvider {
 		{ login, credentials, responseProvider -> Login in
 			guard let refreshToken = login.refreshToken?.value else {
 				throw AuthenticatorError.refreshNotPossible
@@ -207,6 +221,10 @@ public enum Bluesky {
 
 			guard tokenResponse.token_type == "DPoP" else {
 				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
+			}
+
+			if try await validator(tokenResponse, server.issuer) == false {
+				throw AuthenticatorError.tokenInvalid
 			}
 
 			return tokenResponse.login(for: server.issuer)
