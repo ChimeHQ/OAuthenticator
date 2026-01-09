@@ -137,6 +137,10 @@ public enum Bluesky {
 				throw AuthenticatorError.stateTokenMismatch(state, params.stateToken)
 			}
 
+			if iss != server.issuer {
+				throw AuthenticatorError.issuingServerMismatch(iss, server.issuer)
+			}
+
 			// and use them (plus just a little more) to construct the token request
 			guard let tokenURL = URL(string: server.tokenEndpoint) else {
 				throw AuthenticatorError.missingTokenURL
@@ -167,10 +171,6 @@ public enum Bluesky {
 
 			guard tokenResponse.token_type == "DPoP" else {
 				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
-			}
-
-			if iss != server.issuer {
-				throw AuthenticatorError.issuingServerMismatch(iss, server.issuer)
 			}
 
 			if try await validator(tokenResponse, server.issuer) == false {
