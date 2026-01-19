@@ -219,16 +219,13 @@ extension Authenticator {
 		try await storage.storeLogin(login)
 	}
 
-	private func clearLogin() async {
-		guard let storage = config.loginStorage else { return }
-
-		let invalidLogin = Login(token: "invalid", validUntilDate: .distantPast)
-
-		do {
-			try await storage.storeLogin(invalidLogin)
-		} catch {
-			print("failed to store an invalid login, possibly stuck", error)
+	private func clearLogin() async throws {
+		guard let storage = config.loginStorage else {
+			self.localLogin = nil
+			return
 		}
+
+		try await storage.clearLogin()
 	}
 }
 
@@ -356,7 +353,7 @@ extension Authenticator {
 
 			return login
 		} catch {
-			await clearLogin()
+			try await clearLogin()
 
 			throw error
 		}
