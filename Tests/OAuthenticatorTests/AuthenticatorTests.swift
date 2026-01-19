@@ -118,6 +118,8 @@ struct AuthenticatorTests {
 			#expect($0 == Login(token: "TOKEN"))
 
 			continutation.yield(3)
+		} clearLogin: {
+			Issue.record("token should not be cleared")
 		}
 
 		let config = Authenticator.Configuration(
@@ -157,7 +159,9 @@ struct AuthenticatorTests {
 
 			return Login(token: "TOKEN")
 		} storeLogin: { _ in
-			#expect(Bool(false))
+			Issue.record("token should not be stored")
+		} clearLogin: {
+			Issue.record("token should not be cleared")
 		}
 
 		let config = Authenticator.Configuration(
@@ -213,6 +217,8 @@ struct AuthenticatorTests {
 			continutation.yield(3)
 
 			#expect(login.accessToken.value == "REFRESHED")
+		} clearLogin: {
+			Issue.record("token should not be cleared")
 		}
 
 		let config = Authenticator.Configuration(
@@ -228,6 +234,63 @@ struct AuthenticatorTests {
 
 		let events = try await stream.collect(finishing: continutation)
 		#expect(events == [1, 2, 3, 4])
+	}
+
+	@Test
+	func expiredTokenRefreshFailing() async throws {
+		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let mockLoader: URLResponseProvider = { request in
+			// We should never load the resource, since we failed to refresh the session:
+			Issue.record("load should not occcur")
+
+			return MockURLResponseProvider.dummyResponse
+		}
+
+		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
+			continutation.yield(2)
+
+			#expect(login.accessToken.value == "EXPIRED")
+			#expect(login.refreshToken?.value == "REFRESH")
+
+			// Fail the refresh attempt, e.g., the refresh token has expired:
+			throw AuthenticatorError.refreshNotPossible
+		}
+
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: Self.disabledAuthorizationURLProvider,
+			loginProvider: Self.disabledLoginProvider,
+			refreshProvider: refreshProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let storage = LoginStorage {
+			continutation.yield(1)
+
+			return Login(
+				accessToken: Token(value: "EXPIRED", expiry: .distantPast),
+				refreshToken: Token(value: "REFRESH")
+			)
+		} storeLogin: { login in
+			Issue.record("token should not be stored")
+		} clearLogin: {
+			continutation.yield(3)
+		}
+
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: mockLoader)
+
+		await #expect(throws: AuthenticatorError.refreshNotPossible) {
+			let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
+		}
+
+		let events = try await stream.collect(finishing: continutation)
+		#expect(events == [1, 2, 3])
 	}
 
 	@Test
@@ -416,6 +479,8 @@ struct AuthenticatorTests {
 			)
 		} storeLogin: { login in
 			#expect(login.accessToken.value == "REFRESHED")
+		} clearLogin: {
+			Issue.record("token should not be cleared")
 		}
 
 		let config = Authenticator.Configuration(
@@ -472,6 +537,8 @@ struct AuthenticatorTests {
 			return storedLogin
 		} storeLogin: { @MainActor login in
 			savedLogins.append(login)
+		} clearLogin: {
+			Issue.record("token should not be cleared")
 		}
 
 		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
