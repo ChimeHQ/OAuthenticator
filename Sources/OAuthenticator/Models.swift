@@ -97,7 +97,7 @@ public struct LoginStorage: Sendable {
 	public init(
 		retrieveLogin: @escaping RetrieveLogin,
 		storeLogin: @escaping StoreLogin,
-		clearLogin: @escaping ClearLogin
+		clearLogin: @escaping ClearLogin = {}
 	) {
 		self.retrieveLogin = retrieveLogin
 		self.storeLogin = storeLogin
