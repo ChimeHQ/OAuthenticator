@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 
 import OAuthenticator
@@ -17,6 +20,7 @@ struct BlueskyTests {
 			account: "placeholder",
 			server: metadata,
 			jwtGenerator: { _ in "" },
+			pkce: PKCEVerifier(hash: "", hasher: { _ in "" }),
 			validator: { _, _ in true }
 		)
 
@@ -37,7 +41,7 @@ struct BlueskyTests {
 			return (Data(payload.utf8), response)
 		}
 
-		let verifier = PKCEVerifier()
+		let verifier = PKCEVerifier(hash: "", hasher: { _ in "" })
 		let params = TokenHandling.LoginProviderParameters(
 			authorizationURL: URL(string: "https://server-metadata.test/oauth/authorize")!,
 			credentials: AppCredentials(
@@ -65,11 +69,14 @@ struct BlueskyTests {
 
 		let data = try #require(metadataContent.data(using: .utf8))
 
+		let verifier = PKCEVerifier(hash: "", hasher: { _ in "" })
+
 		let metadata = try JSONDecoder().decode(ServerMetadata.self, from: data)
 		let handling = Bluesky.tokenHandling(
 			account: "placeholder",
 			server: metadata,
 			jwtGenerator: { _ in "" },
+			pkce: verifier,
 			validator: { response, issuer in
 				#expect(response.sub == "2")
 				#expect(issuer == "https://server-metadata.test")
@@ -95,7 +102,6 @@ struct BlueskyTests {
 			return (Data(payload.utf8), response)
 		}
 
-		let verifier = PKCEVerifier()
 		let params = TokenHandling.LoginProviderParameters(
 			authorizationURL: URL(string: "https://server-metadata.test/oauth/authorize")!,
 			credentials: AppCredentials(
