@@ -10,20 +10,6 @@ enum AuthenticatorTestsError: Error {
 	case disabled
 }
 
-extension AsyncSequence {
-	func collect() async throws -> [Element] {
-		try await reduce(into: [Element]()) { $0.append($1) }
-	}
-}
-
-extension AsyncStream {
-	func collect(finishing continuation: Self.Continuation) async throws -> [Element] {
-		continuation.finish()
-
-		return try await collect()
-	}
-}
-
 final class MockURLResponseProvider: @unchecked Sendable {
 	var responses: [Result<(Data, URLResponse), Error>] = []
 	private(set) var requests: [URLRequest] = []
@@ -75,18 +61,18 @@ struct AuthenticatorTests {
 
 	@Test
 	func testInitialLogin() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let mockLoader: URLResponseProvider = { request in
 			#expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer TOKEN")
 
-			continutation.yield(4)
+			continutation.yield("request")
 
 			return MockURLResponseProvider.dummyResponse
 		}
 
 		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
-			continutation.yield(2)
+			continutation.yield("auth")
 
 			#expect(url == URL(string: "my://auth?client_id=abc")!)
 			#expect(scheme == "my")
@@ -111,13 +97,13 @@ struct AuthenticatorTests {
 		)
 
 		let storage = LoginStorage {
-			continutation.yield(1)
+			continutation.yield("load")
 
 			return nil
 		} storeLogin: {
 			#expect($0 == Login(token: "TOKEN"))
 
-			continutation.yield(3)
+			continutation.yield("store")
 		} clearLogin: {
 			Issue.record("token should not be cleared")
 		}
@@ -134,16 +120,16 @@ struct AuthenticatorTests {
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1, 2, 3, 4])
+		#expect(events == ["load", "auth", "store", "request"])
 	}
 
 	@Test
 	func testExistingLogin() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let mockLoader: URLResponseProvider = { request in
 			#expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer TOKEN")
-			continutation.yield(2)
+			continutation.yield("request")
 
 			return MockURLResponseProvider.dummyResponse
 		}
@@ -155,7 +141,7 @@ struct AuthenticatorTests {
 		)
 
 		let storage = LoginStorage {
-			continutation.yield(1)
+			continutation.yield("load")
 
 			return Login(token: "TOKEN")
 		} storeLogin: { _ in
@@ -176,16 +162,16 @@ struct AuthenticatorTests {
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1, 2])
+		#expect(events == ["load", "request"])
 	}
 
 	@Test
 	func expiredTokenRefresh() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let mockLoader: URLResponseProvider = { request in
 			#expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer REFRESHED")
-			continutation.yield(4)
+			continutation.yield("request")
 
 			return MockURLResponseProvider.dummyResponse
 		}
@@ -194,7 +180,7 @@ struct AuthenticatorTests {
 			#expect(login.accessToken.value == "EXPIRED")
 			#expect(login.refreshToken?.value == "REFRESH")
 
-			continutation.yield(2)
+			continutation.yield("refresh")
 
 			return Login(token: "REFRESHED")
 		}
@@ -207,14 +193,14 @@ struct AuthenticatorTests {
 		)
 
 		let storage = LoginStorage {
-			continutation.yield(1)
+			continutation.yield("load")
 
 			return Login(
 				accessToken: Token(value: "EXPIRED", expiry: .distantPast),
 				refreshToken: Token(value: "REFRESH")
 			)
 		} storeLogin: { login in
-			continutation.yield(3)
+			continutation.yield("store")
 
 			#expect(login.accessToken.value == "REFRESHED")
 		} clearLogin: {
@@ -233,12 +219,12 @@ struct AuthenticatorTests {
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1, 2, 3, 4])
+		#expect(events == ["load", "refresh", "store", "request"])
 	}
 
 	@Test
 	func expiredTokenRefreshFailing() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 		let mockLoader: URLResponseProvider = { request in
 			// We should never load the resource, since we failed to refresh the session:
 			Issue.record("load should not occcur")
@@ -247,7 +233,7 @@ struct AuthenticatorTests {
 		}
 
 		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
-			continutation.yield(2)
+			continutation.yield("refresh")
 
 			#expect(login.accessToken.value == "EXPIRED")
 			#expect(login.refreshToken?.value == "REFRESH")
@@ -264,7 +250,7 @@ struct AuthenticatorTests {
 		)
 
 		let storage = LoginStorage {
-			continutation.yield(1)
+			continutation.yield("load")
 
 			return Login(
 				accessToken: Token(value: "EXPIRED", expiry: .distantPast),
@@ -273,7 +259,7 @@ struct AuthenticatorTests {
 		} storeLogin: { login in
 			Issue.record("token should not be stored")
 		} clearLogin: {
-			continutation.yield(3)
+			continutation.yield("clear")
 		}
 
 		let config = Authenticator.Configuration(
@@ -290,12 +276,12 @@ struct AuthenticatorTests {
 		}
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1, 2, 3])
+		#expect(events == ["load", "refresh", "clear"])
 	}
 
 	@Test
 	func manualAuthentication() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let urlProvider: TokenHandling.AuthorizationURLProvider = { parameters in
 			return URL(string: "my://auth?client_id=\(parameters.credentials.clientId)")!
@@ -314,7 +300,7 @@ struct AuthenticatorTests {
 		)
 
 		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
-			continutation.yield(1)
+			continutation.yield("auth")
 
 			return URL(string: "my://login")!
 		}
@@ -327,7 +313,7 @@ struct AuthenticatorTests {
 		)
 
 		let mockLoader: URLResponseProvider = { request in
-			continutation.yield(2)
+			continutation.yield("request")
 
 			return MockURLResponseProvider.dummyResponse
 		}
@@ -344,12 +330,12 @@ struct AuthenticatorTests {
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1, 2])
+		#expect(events == ["auth", "request"])
 	}
 
 	@Test
 	func manualAuthenticationWithSuccessResult() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
 			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
@@ -368,7 +354,7 @@ struct AuthenticatorTests {
 		)
 
 		let mockUserAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
-			continutation.yield(1)
+			continutation.yield("auth")
 
 			return URL(string: "my://login")!
 		}
@@ -382,7 +368,7 @@ struct AuthenticatorTests {
 		)
 
 		let mockLoader: URLResponseProvider = { request in
-			continutation.yield(2)
+			continutation.yield("request")
 
 			return MockURLResponseProvider.dummyResponse
 		}
@@ -397,13 +383,13 @@ struct AuthenticatorTests {
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1, 2])
+		#expect(events == ["auth", "request"])
 	}
 
 	// Test AuthenticationResultHandler with a failed UserAuthenticator
 	@Test
 	func manualAuthenticationWithFailedResult() async throws {
-		let (stream, continutation) = AsyncStream<Int>.makeStream()
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
 			return URL(string: "my://auth?client_id=\(params.credentials.clientId)")!
@@ -421,10 +407,10 @@ struct AuthenticatorTests {
 			responseStatusProvider: TokenHandling.allResponsesValid
 		)
 
-		let authenticationCallback: Authenticator.AuthenticationStatusHandler = { @MainActor result in
+		let authenticationCallback: Authenticator.AuthenticationStatusHandler = { result in
 			switch result {
 			case .failure(_):
-				continutation.yield(1)
+				continutation.yield("status failure")
 			case .success(_):
 				#expect(Bool(false))
 			}
@@ -446,7 +432,7 @@ struct AuthenticatorTests {
 		}
 
 		let events = try await stream.collect(finishing: continutation)
-		#expect(events == [1])
+		#expect(events == ["status failure"])
 	}
 
 	@Test
@@ -501,19 +487,20 @@ struct AuthenticatorTests {
 	}
 
 	@available(macOS 13.0, macCatalyst 16.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
-	@MainActor
 	@Test
 	func tokenExpiredAfterUseRefresh() async throws {
-		var sentRequests: [URLRequest] = []
+		let (stream, continutation) = AsyncStream<String>.makeStream()
 
 		let mockLoader: URLResponseProvider = { @MainActor request in
-			sentRequests.append(request)
+			continutation.yield("request")
+			continutation.yield(request.value(forHTTPHeaderField: "Authorization") ?? "<none>")
+
 			return MockURLResponseProvider.dummyResponse
 		}
 
-		var refreshedLogins: [Login] = []
-		let refreshProvider: TokenHandling.RefreshProvider = { @MainActor login, _, _ in
-			refreshedLogins.append(login)
+		let refreshProvider: TokenHandling.RefreshProvider = { login, _, _ in
+			continutation.yield("refresh")
+			continutation.yield(login.refreshToken?.value ?? "<none>")
 
 			return Login(token: "REFRESHED")
 		}
@@ -529,57 +516,65 @@ struct AuthenticatorTests {
 			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(1)),
 			refreshToken: Token(value: "REFRESH")
 		)
-		var loadLoginCount = 0
-		var savedLogins: [Login] = []
-		let storage = LoginStorage { @MainActor in
-			loadLoginCount += 1
+
+		let storage = LoginStorage {
+			continutation.yield("login load")
 
 			return storedLogin
-		} storeLogin: { @MainActor login in
-			savedLogins.append(login)
+		} storeLogin: { login in
+			continutation.yield("login save")
+			continutation.yield(login.accessToken.value)
 		} clearLogin: {
 			Issue.record("token should not be cleared")
 		}
 
-		let config = Authenticator.Configuration(appCredentials: Self.mockCredentials,
-												 loginStorage: storage,
-												 tokenHandling: tokenHandling,
-												 userAuthenticator: Self.disabledUserAuthenticator)
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			loginStorage: storage,
+			tokenHandling: tokenHandling,
+			userAuthenticator: Self.disabledUserAuthenticator
+		)
 
 		let auth = Authenticator(config: config, urlLoader: mockLoader)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		let sentRequestsOne = sentRequests
+		continutation.checkpoint()
 
-		#expect(sentRequestsOne.count == 1, "First request should be sent")
-		#expect(sentRequestsOne.first?.value(forHTTPHeaderField: "Authorization") == "Bearer EXPIRE SOON", "Non expired token should be used for first request")
-		#expect(refreshedLogins.isEmpty, "Token should not be refreshed after first request")
-		#expect(loadLoginCount == 1, "Login should be loaded from storage once")
-		#expect(savedLogins.isEmpty, "Login storage should not be updated after first request")
+		let events1 = try await stream.collectToCheckpoint()
+		let expected1 = [
+			"login load",
+			"request",
+			"Bearer EXPIRE SOON",
+			"checkpoint"
+		]
+		#expect(events1 == expected1)
 
 		// Let the token expire
 		try await Task.sleep(for: .seconds(2))
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		let sentRequestsTwo = sentRequests
+		continutation.checkpoint()
 
-		#expect(refreshedLogins.count == 1, "Token should be refreshed")
-		#expect(refreshedLogins.first?.accessToken.value == "EXPIRE SOON", "Expired token should be passed to refresh call")
-		#expect(refreshedLogins.first?.refreshToken?.value == "REFRESH", "Refresh token should be passed to refresh call")
-		#expect(loadLoginCount == 2, "New login should be loaded from storage")
-		#expect(sentRequestsTwo.count == 2, "Second request should be sent")
-		let secondRequest = sentRequestsTwo.dropFirst().first
-		#expect(secondRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer REFRESHED", "Refreshed token should be used for second request")
-		#expect(savedLogins.first?.accessToken.value == "REFRESHED", "Refreshed token should be saved to storage")
+		let events2 = try await stream.collectToCheckpoint()
+		let expected2 = [
+			"login load",
+			"refresh",
+			"REFRESH",
+			"login save",
+			"REFRESHED",
+			"request",
+			"Bearer REFRESHED",
+			"checkpoint",
+		]
+		#expect(events2 == expected2)
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
-		let sentRequestsThree = sentRequests
 
-		#expect(refreshedLogins.count == 1, "No additional refreshes should happen")
-		#expect(loadLoginCount == 2, "No additional login loads should happen")
-		#expect(sentRequestsThree.count == 3, "Third request should be sent")
-		let thirdRequest = sentRequestsThree.dropFirst(2).first
-		#expect(thirdRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer REFRESHED", "Refreshed token should be used for third request")
-		#expect(savedLogins.count == 1, "No additional logins should be saved to storage")
+		let events3 = try await stream.collect(finishing: continutation)
+		let expected3 = [
+			"request",
+			"Bearer REFRESHED",
+		]
+		#expect(events3 == expected3)
 	}
 }
