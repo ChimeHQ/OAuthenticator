@@ -513,7 +513,7 @@ struct AuthenticatorTests {
 		)
 
 		let storedLogin = Login(
-			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(1)),
+			accessToken: Token(value: "EXPIRE SOON", expiry: Date().addingTimeInterval(5)),
 			refreshToken: Token(value: "REFRESH")
 		)
 
@@ -550,7 +550,7 @@ struct AuthenticatorTests {
 		#expect(events1 == expected1)
 
 		// Let the token expire
-		try await Task.sleep(for: .seconds(2))
+		try await Task.sleep(for: .seconds(5))
 
 		let (_, _) = try await auth.response(for: URLRequest(url: URL(string: "https://example.com")!))
 		continutation.checkpoint()
