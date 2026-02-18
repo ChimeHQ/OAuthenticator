@@ -405,10 +405,13 @@ extension Authenticator {
 			"code_challenge_method": challenge.method,
 		]
 
-		let body = params
+		var components = URLComponents()
+		components.queryItems = params
 			.merging(base, uniquingKeysWith: { a, b in a })
-			.map({ [$0, $1].joined(separator: "=") })
-			.joined(separator: "&")
+			.map { URLQueryItem(name: $0, value: $1) }
+
+		// URLComponents.percentEncodedQuery handles form encoding (spaces → %20, etc.)
+		let body = components.percentEncodedQuery ?? ""
 
 		request.httpBody = Data(body.utf8)
 
