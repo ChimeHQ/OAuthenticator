@@ -253,21 +253,21 @@ extension Authenticator {
 
 		var login: Login
 		do {
-				do {
-						login = try await loginFromTask(task: task)
-				} catch AuthenticatorError.tokenInvalid {
-						let newTask = makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
-						login = try await loginFromTask(task: newTask)
-				}
+			do {
+				login = try await loginFromTask(task: task)
+			} catch AuthenticatorError.tokenInvalid {
+				let newTask = makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
+				login = try await loginFromTask(task: newTask)
+			}
 
-				// Inform authenticationResult closure of new login information
-				await self.config.authenticationStatusHandler?(.success(login))
+			// Inform authenticationResult closure of new login information
+			await self.config.authenticationStatusHandler?(.success(login))
 		}
 		catch let authenticatorError as AuthenticatorError {
-				await self.config.authenticationStatusHandler?(.failure(authenticatorError))
+			await self.config.authenticationStatusHandler?(.failure(authenticatorError))
 
-				// Rethrow error
-				throw authenticatorError
+			// Rethrow error
+			throw authenticatorError
 		}
 
 		return login
