@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+	import FoundationNetworking
 #endif
 
 /// Find the spec here: https://atproto.com/specs/oauth
@@ -12,7 +13,10 @@ public enum Bluesky {
 		public let grant_type: String
 		public let client_id: String
 
-		public init(code: String, code_verifier: String, redirect_uri: String, grant_type: String, client_id: String) {
+		public init(
+			code: String, code_verifier: String, redirect_uri: String, grant_type: String,
+			client_id: String
+		) {
 			self.code = code
 			self.code_verifier = code_verifier
 			self.redirect_uri = redirect_uri
@@ -27,7 +31,8 @@ public enum Bluesky {
 		public let grant_type: String
 		public let client_id: String
 
-		public init(refresh_token: String, redirect_uri: String, grant_type: String, client_id: String) {
+		public init(refresh_token: String, redirect_uri: String, grant_type: String, client_id: String)
+		{
 			self.refresh_token = refresh_token
 			self.redirect_uri = redirect_uri
 			self.grant_type = grant_type
@@ -58,7 +63,8 @@ public enum Bluesky {
 		public var expiresIn: Int { expires_in }
 	}
 
-	public typealias TokenSubscriberValidator = @Sendable (TokenResponse, _ issuer: String) async throws -> Bool
+	public typealias TokenSubscriberValidator =
+		@Sendable (TokenResponse, _ issuer: String) async throws -> Bool
 
 	public static func tokenHandling(
 		account: String?,
@@ -80,24 +86,26 @@ public enum Bluesky {
 		)
 	}
 
-#if canImport(CryptoKit)
-	public static func tokenHandling(
-		account: String?,
-		server: ServerMetadata,
-		jwtGenerator: @escaping DPoPSigner.JWTGenerator,
-		validator: @escaping TokenSubscriberValidator
-	) -> TokenHandling {
-		tokenHandling(
-			account: account,
-			server: server,
-			jwtGenerator: jwtGenerator,
-			pkce: PKCEVerifier(),
-			validator: validator
-		)
-	}
-#endif
+	#if canImport(CryptoKit)
+		public static func tokenHandling(
+			account: String?,
+			server: ServerMetadata,
+			jwtGenerator: @escaping DPoPSigner.JWTGenerator,
+			validator: @escaping TokenSubscriberValidator
+		) -> TokenHandling {
+			tokenHandling(
+				account: account,
+				server: server,
+				jwtGenerator: jwtGenerator,
+				pkce: PKCEVerifier(),
+				validator: validator
+			)
+		}
+	#endif
 
-	private static func authorizionURLProvider(server: ServerMetadata) -> TokenHandling.AuthorizationURLProvider {
+	private static func authorizionURLProvider(server: ServerMetadata)
+		-> TokenHandling.AuthorizationURLProvider
+	{
 		return { params in
 			var components = URLComponents(string: server.authorizationEndpoint)
 
@@ -118,10 +126,15 @@ public enum Bluesky {
 		}
 	}
 
-	private static func loginProvider(server: ServerMetadata, validator: @escaping TokenSubscriberValidator) -> TokenHandling.LoginProvider {
+	private static func loginProvider(
+		server: ServerMetadata, validator: @escaping TokenSubscriberValidator
+	) -> TokenHandling.LoginProvider {
 		return { params in
 			// decode the params in the redirectURL
-			guard let redirectComponents = URLComponents(url: params.redirectURL, resolvingAgainstBaseURL: false) else {
+			guard
+				let redirectComponents = URLComponents(
+					url: params.redirectURL, resolvingAgainstBaseURL: false)
+			else {
 				throw AuthenticatorError.missingTokenURL
 			}
 
@@ -181,7 +194,9 @@ public enum Bluesky {
 		}
 	}
 
-	private static func refreshProvider(server: ServerMetadata, validator: @escaping TokenSubscriberValidator) -> TokenHandling.RefreshProvider {
+	private static func refreshProvider(
+		server: ServerMetadata, validator: @escaping TokenSubscriberValidator
+	) -> TokenHandling.RefreshProvider {
 		{ login, credentials, responseProvider -> Login in
 			guard let refreshToken = login.refreshToken?.value else {
 				throw AuthenticatorError.refreshNotPossible
@@ -207,9 +222,7 @@ public enum Bluesky {
 			let (data, response) = try await responseProvider(request)
 
 			// make sure that we got a successful HTTP response
-			guard
-				let httpResponse = response as? HTTPURLResponse,
-				httpResponse.statusCode >= 200 && httpResponse.statusCode < 300
+			guard response.statusCode >= 200 && response.statusCode < 300
 			else {
 				print("data:", String(decoding: data, as: UTF8.self))
 				print("response:", response)

@@ -1,7 +1,44 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+	import FoundationNetworking
 #endif
+
+public final class NonceValue {
+	let origin: String
+	let nonce: String
+
+	init(origin: String, nonce: String) {
+		self.origin = origin
+		self.nonce = nonce
+	}
+}
+
+extension NSCache where KeyType == NSString, ObjectType == NonceValue {
+	subscript(_ url: URL) -> String? {
+		get {
+			let key = url.origin
+			guard let key = key else {
+				return nil
+			}
+			let value = object(forKey: key as NSString)
+			return value?.nonce
+		}
+		set {
+			let key = url.origin
+			guard let key = key else {
+				return
+			}
+
+			if let entry = newValue {
+				let value = NonceValue(origin: key, nonce: entry)
+				setObject(value, forKey: key as NSString)
+			} else {
+				removeObject(forKey: key as NSString)
+			}
+		}
+	}
+}
 
 public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 	public let uniqueCode: String
@@ -12,9 +49,8 @@ public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 	/// UNIX type, seconds since epoch
 	public let expiresAt: Int
 	public let nonce: String?
-	public let authorizationServerIssuer: String
 	public let accessTokenHash: String
-	
+
 	public enum CodingKeys: String, CodingKey {
 		case uniqueCode = "jti"
 		case httpMethod = "htm"
@@ -22,10 +58,9 @@ public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 		case createdAt = "iat"
 		case expiresAt = "exp"
 		case nonce
-		case authorizationServerIssuer = "iss"
 		case accessTokenHash = "ath"
 	}
-	
+
 	public init(
 		httpMethod: String,
 		httpRequestURL: String,
@@ -41,12 +76,12 @@ public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 		self.createdAt = createdAt
 		self.expiresAt = expiresAt
 		self.nonce = nonce
-		self.authorizationServerIssuer = authorizationServerIssuer
 		self.accessTokenHash = accessTokenHash
 	}
 }
 
 public enum DPoPError: Error {
+	case missingOrigin(URLResponse)
 	case nonceExpected(URLResponse)
 	case requestInvalid(URLRequest)
 }
@@ -64,21 +99,27 @@ public final class DPoPSigner {
 		public let requestEndpoint: String
 		public let nonce: String?
 		public let tokenHash: String?
-		public let issuingServer: String?
 	}
-	
-	public typealias NonceDecoder = (Data, URLResponse) throws -> String
-	public typealias JWTGenerator = @Sendable (JWTParameters) async throws -> String
-	private let nonceDecoder: NonceDecoder
-	public var nonce: String?
 
-	public static func nonceHeaderDecoder(data: Data, response: URLResponse) throws -> String {
-		guard let value = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "DPoP-Nonce") else {
-			print("data:", String(decoding: data, as: UTF8.self))
-			throw DPoPError.nonceExpected(response)
+	public typealias JWTGenerator = @Sendable (JWTParameters) async throws -> String
+
+	// Return value is (origin, nonce)
+	public typealias NonceDecoder = (Data, HTTPURLResponse) throws -> NonceValue?
+	private let nonceCache: NSCache<NSString, NonceValue> = NSCache()
+	private let nonceDecoder: NonceDecoder
+
+	public static func nonceHeaderDecoder(data: Data, response: HTTPURLResponse) throws -> NonceValue? {
+		guard let value = response.value(forHTTPHeaderField: "DPoP-Nonce") else {
+			return nil
 		}
 
-		return value
+		// I'm not sure why response.url is optional, but maybe we need the request
+		// passed into the decoder here, to fallback to request.url.origin
+		guard let responseOrigin = response.url?.origin else {
+			return nil
+		}
+
+		return NonceValue(origin: responseOrigin, nonce: value)
 	}
 
 	public init(nonceDecoder: @escaping NonceDecoder = nonceHeaderDecoder) {
@@ -87,13 +128,13 @@ public final class DPoPSigner {
 }
 
 extension DPoPSigner {
-	public func authenticateRequest(
+	public func buildProof(
 		_ request: inout URLRequest,
+		nonce: String?,
 		isolation: isolated (any Actor),
 		using jwtGenerator: JWTGenerator,
 		token: String?,
-		tokenHash: String?,
-		issuer: String?
+		tokenHash: String?
 	) async throws {
 		guard
 			let method = request.httpMethod,
@@ -107,8 +148,7 @@ extension DPoPSigner {
 			httpMethod: method,
 			requestEndpoint: url.absoluteString,
 			nonce: nonce,
-			tokenHash: tokenHash,
-			issuingServer: issuer
+			tokenHash: tokenHash
 		)
 
 		let jwt = try await jwtGenerator(params)
@@ -120,43 +160,110 @@ extension DPoPSigner {
 		}
 	}
 
-	@discardableResult
-	public func setNonce(from response: URLResponse) -> Bool {
-		let newValue = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "dpop-nonce")
-
-		nonce = newValue
-
-		return newValue != nil
-	}
-
 	public func response(
 		isolation: isolated (any Actor),
 		for request: URLRequest,
 		using jwtGenerator: JWTGenerator,
 		token: String?,
+		// FIXME: Remove and use swift crypto to provide sha256, instead of using pkce.hashFunction
 		tokenHash: String?,
 		issuingServer: String?,
 		provider: URLResponseProvider
 	) async throws -> (Data, URLResponse) {
 		var request = request
 
-		try await authenticateRequest(&request, isolation: isolation, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
+		// Requests must have a URL with an origin:
+		guard let requestOrigin = request.url?.origin else {
+			throw DPoPError.requestInvalid(request)
+		}
+
+		let initNonce = nonceCache.object(forKey: requestOrigin as NSString)
+
+		// build proof
+		try await buildProof(
+			&request,
+			nonce: initNonce?.nonce,
+			isolation: isolation,
+			using: jwtGenerator,
+			token: token,
+			tokenHash: tokenHash
+		)
 
 		let (data, response) = try await provider(request)
 
-		let existingNonce = nonce
-
-		self.nonce = try nonceDecoder(data, response)
-
-		if nonce == existingNonce {
+		// Extract the next nonce value if any; if we don't have a new nonce, return the response:
+		guard let nextNonce = try nonceDecoder(data, response) else {
 			return (data, response)
 		}
 
-		print("DPoP nonce updated", existingNonce ?? "", nonce ?? "")
+		// If the response doesn't have a new nonce, or the new nonce is the same as
+		// the current nonce for the same origin, return the response:
+		if nextNonce.origin == initNonce?.origin && nextNonce.nonce == initNonce?.nonce {
+			return (data, response)
+		}
+
+		// Store the fresh nonce for future requests
+		nonceCache.setObject(nextNonce, forKey: nextNonce.origin as NSString)
+
+		// FIXME: We actually need to calculate this somehow
+		let isAuthServer = false
+		let shouldRetry = isUseDpopError(data: data, response: response, isAuthServer: isAuthServer)
+		if !shouldRetry {
+			return (data, response)
+		}
 
 		// repeat once, using newly-established nonce
-		try await authenticateRequest(&request, isolation: isolation, using: jwtGenerator, token: token, tokenHash: tokenHash, issuer: issuingServer)
+		try await buildProof(
+			&request,
+			nonce: nextNonce.nonce,
+			isolation: isolation,
+			using: jwtGenerator,
+			token: token,
+			tokenHash: tokenHash
+		)
 
-		return try await provider(request)
+		let (retryData, retryResponse) = try await provider(request)
+		if let retryNonce = try nonceDecoder(retryData, retryResponse) {
+			nonceCache.setObject(retryNonce, forKey: retryNonce.origin as NSString)
+		}
+
+		return (retryData, retryResponse)
+	}
+
+	private func isUseDpopError(data: Data, response: HTTPURLResponse, isAuthServer: Bool?) -> Bool {
+		// https://datatracker.ietf.org/doc/html/rfc6750#section-3
+  	// https://datatracker.ietf.org/doc/html/rfc9449#name-resource-server-provided-no
+		if isAuthServer == nil || isAuthServer == false {
+			if response.statusCode == 401 {
+				let wwwAuthHeader = response.value(forHTTPHeaderField: "WWW-Authenticate")
+				if let wwwAuth = wwwAuthHeader {
+					if wwwAuth.starts(with: "DPoP") {
+						return wwwAuth.contains("error=\"use_dpop_nonce\"")
+					}
+				}
+			}
+		}
+
+  // if (isAuthServer === undefined || isAuthServer === false) {
+  //   if (response.status === 401) {
+  //     const wwwAuth = response.headers.get('WWW-Authenticate')
+  //     if (wwwAuth?.startsWith('DPoP')) {
+  //       return wwwAuth.includes('error="use_dpop_nonce"')
+  //     }
+  //   }
+  // }
+
+  // https://datatracker.ietf.org/doc/html/rfc9449#name-authorization-server-provid
+  if (isAuthServer === undefined || isAuthServer === true) {
+    if (response.status === 400) {
+      try {
+        const json = await peekJson(response, 10 * 1024)
+        return typeof json === 'object' && json?.['error'] === 'use_dpop_nonce'
+      } catch {
+        // Response too big (to be "use_dpop_nonce" error) or invalid JSON
+        return false
+      }
+    }
+  }
 	}
 }
