@@ -11,6 +11,24 @@ import Foundation
 public typealias URLResponseProvider =
 	@Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
+/// Decodes a OAuth Error Response.
+public struct OAuthErrorResponse: Codable, Hashable, Sendable {
+	public let error: String
+	public let errorDescription: String?
+
+	enum CodingKeys: String, CodingKey {
+		case error
+		case errorDescription = "error_description"
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+
+		error = try container.decode(String.self, forKey: .error)
+		errorDescription = try container.decodeIfPresent(String.self, forKey: .errorDescription)
+	}
+}
+
 /// Holds an access token value and its expiry.
 public struct Token: Codable, Hashable, Sendable {
 	/// The access token.

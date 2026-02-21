@@ -139,14 +139,14 @@ public actor Authenticator {
 	}()
 
 	/// Add authentication for `request`, execute it, and return its result.
-	public func response(for request: URLRequest) async throws -> (Data, URLResponse) {
+	public func response(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
 		let userAuthenticator = config.userAuthenticator
 
 		let login = try await loginTaskResult(manual: false, userAuthenticator: userAuthenticator)
 
 		let result = try await authedResponse(for: request, login: login)
 
-		let action = try config.tokenHandling.responseStatusProvider(result)
+		let action = try config.tokenHandling.responseStatusProvider(result )
 
 		switch action {
 		case .authorize:
@@ -180,7 +180,7 @@ public actor Authenticator {
 		}
 	}
 
-	private func authedResponse(for request: URLRequest, login: Login) async throws -> (Data, URLResponse) {
+	private func authedResponse(for request: URLRequest, login: Login) async throws -> (Data, HTTPURLResponse) {
 		var authedRequest = request
 		let token = login.accessToken.value
 
@@ -412,7 +412,7 @@ extension Authenticator {
 		{ try await self.response(for: $0) }
 	}
 
-	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (Data, URLResponse) {
+	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (Data, HTTPURLResponse) {
 		guard let generator = config.tokenHandling.dpopJWTGenerator else {
 			return try await urlLoader(request)
 		}
@@ -431,7 +431,7 @@ extension Authenticator {
 			token: token,
 			tokenHash: tokenHash,
 			issuingServer: login?.issuingServer,
-			provider: urlLoader
+			responseProvider: urlLoader
 		)
 	}
 }

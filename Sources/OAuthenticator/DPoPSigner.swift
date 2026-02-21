@@ -5,8 +5,8 @@ import Foundation
 #endif
 
 public final class NonceValue {
-	let origin: String
-	let nonce: String
+	public let origin: String
+	public let nonce: String
 
 	init(origin: String, nonce: String) {
 		self.origin = origin
@@ -80,7 +80,7 @@ public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 	}
 }
 
-public enum DPoPError: Error {
+public enum DPoPError: Error, Equatable {
 	case missingOrigin(URLResponse)
 	case nonceExpected(URLResponse)
 	case requestInvalid(URLRequest)
@@ -108,7 +108,8 @@ public final class DPoPSigner {
 	private let nonceCache: NSCache<NSString, NonceValue> = NSCache()
 	private let nonceDecoder: NonceDecoder
 
-	public static func nonceHeaderDecoder(data: Data, response: HTTPURLResponse) throws -> NonceValue? {
+	public static func nonceHeaderDecoder(data: Data, response: HTTPURLResponse) throws -> NonceValue?
+	{
 		guard let value = response.value(forHTTPHeaderField: "DPoP-Nonce") else {
 			return nil
 		}
@@ -124,6 +125,14 @@ public final class DPoPSigner {
 
 	public init(nonceDecoder: @escaping NonceDecoder = nonceHeaderDecoder) {
 		self.nonceDecoder = nonceDecoder
+	}
+
+	public func testRetrieveNonceForOrigin(url: URL) -> NonceValue? {
+		guard let origin = url.origin else {
+			return nil
+		}
+
+		return nonceCache.object(forKey: origin as NSString)
 	}
 }
 
@@ -168,9 +177,13 @@ extension DPoPSigner {
 		// FIXME: Remove and use swift crypto to provide sha256, instead of using pkce.hashFunction
 		tokenHash: String?,
 		issuingServer: String?,
-		provider: URLResponseProvider
-	) async throws -> (Data, URLResponse) {
+		responseProvider: URLResponseProvider
+	) async throws -> (Data, HTTPURLResponse) {
 		var request = request
+		var issuer: String? = nil
+		if let iss = issuingServer {
+			issuer = URL(string: iss)?.origin
+		}
 
 		// Requests must have a URL with an origin:
 		guard let requestOrigin = request.url?.origin else {
@@ -189,7 +202,7 @@ extension DPoPSigner {
 			tokenHash: tokenHash
 		)
 
-		let (data, response) = try await provider(request)
+		let (data, response) = try await responseProvider(request)
 
 		// Extract the next nonce value if any; if we don't have a new nonce, return the response:
 		guard let nextNonce = try nonceDecoder(data, response) else {
@@ -205,8 +218,7 @@ extension DPoPSigner {
 		// Store the fresh nonce for future requests
 		nonceCache.setObject(nextNonce, forKey: nextNonce.origin as NSString)
 
-		// FIXME: We actually need to calculate this somehow
-		let isAuthServer = false
+		let isAuthServer = issuer == requestOrigin
 		let shouldRetry = isUseDpopError(data: data, response: response, isAuthServer: isAuthServer)
 		if !shouldRetry {
 			return (data, response)
@@ -222,7 +234,7 @@ extension DPoPSigner {
 			tokenHash: tokenHash
 		)
 
-		let (retryData, retryResponse) = try await provider(request)
+		let (retryData, retryResponse) = try await responseProvider(request)
 		if let retryNonce = try nonceDecoder(retryData, retryResponse) {
 			nonceCache.setObject(retryNonce, forKey: retryNonce.origin as NSString)
 		}
@@ -230,40 +242,35 @@ extension DPoPSigner {
 		return (retryData, retryResponse)
 	}
 
+	// The logic here is taken from:
+	// https://github.com/bluesky-social/atproto/blob/4e96e2c7/packages/oauth/oauth-client/src/fetch-dpop.ts#L195
 	private func isUseDpopError(data: Data, response: HTTPURLResponse, isAuthServer: Bool?) -> Bool {
+		print(
+			"isAuthServer: " + (isAuthServer == nil ? "nil" : (isAuthServer == true ? "true" : "false")))
 		// https://datatracker.ietf.org/doc/html/rfc6750#section-3
-  	// https://datatracker.ietf.org/doc/html/rfc9449#name-resource-server-provided-no
+		// https://datatracker.ietf.org/doc/html/rfc9449#name-resource-server-provided-no
 		if isAuthServer == nil || isAuthServer == false {
 			if response.statusCode == 401 {
-				let wwwAuthHeader = response.value(forHTTPHeaderField: "WWW-Authenticate")
-				if let wwwAuth = wwwAuthHeader {
-					if wwwAuth.starts(with: "DPoP") {
-						return wwwAuth.contains("error=\"use_dpop_nonce\"")
+				if let wwwAuthHeader = response.value(forHTTPHeaderField: "WWW-Authenticate") {
+					if wwwAuthHeader.starts(with: "DPoP") {
+						return wwwAuthHeader.contains("error=\"use_dpop_nonce\"")
 					}
 				}
 			}
 		}
 
-  // if (isAuthServer === undefined || isAuthServer === false) {
-  //   if (response.status === 401) {
-  //     const wwwAuth = response.headers.get('WWW-Authenticate')
-  //     if (wwwAuth?.startsWith('DPoP')) {
-  //       return wwwAuth.includes('error="use_dpop_nonce"')
-  //     }
-  //   }
-  // }
+		// https://datatracker.ietf.org/doc/html/rfc9449#name-authorization-server-provid
+		if isAuthServer == nil || isAuthServer == true {
+			if response.statusCode == 400 {
+				do {
+					let err = try JSONDecoder().decode(OAuthErrorResponse.self, from: data)
+					return err.error == "use_dpop_nonce"
+				} catch {
+					return false
+				}
+			}
+		}
 
-  // https://datatracker.ietf.org/doc/html/rfc9449#name-authorization-server-provid
-  if (isAuthServer === undefined || isAuthServer === true) {
-    if (response.status === 400) {
-      try {
-        const json = await peekJson(response, 10 * 1024)
-        return typeof json === 'object' && json?.['error'] === 'use_dpop_nonce'
-      } catch {
-        // Response too big (to be "use_dpop_nonce" error) or invalid JSON
-        return false
-      }
-    }
-  }
+		return false
 	}
 }
