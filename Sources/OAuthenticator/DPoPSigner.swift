@@ -49,7 +49,7 @@ public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 	/// UNIX type, seconds since epoch
 	public let expiresAt: Int
 	public let nonce: String?
-	public let accessTokenHash: String
+	public let accessTokenHash: String?
 
 	public enum CodingKeys: String, CodingKey {
 		case uniqueCode = "jti"
@@ -81,8 +81,6 @@ public struct DPoPRequestPayload: Codable, Hashable, Sendable {
 }
 
 public enum DPoPError: Error, Equatable {
-	case missingOrigin(URLResponse)
-	case nonceExpected(URLResponse)
 	case requestInvalid(URLRequest)
 }
 
@@ -127,6 +125,7 @@ public final class DPoPSigner {
 		self.nonceDecoder = nonceDecoder
 	}
 
+	// Test helper:
 	public func testRetrieveNonceForOrigin(url: URL) -> NonceValue? {
 		guard let origin = url.origin else {
 			return nil
