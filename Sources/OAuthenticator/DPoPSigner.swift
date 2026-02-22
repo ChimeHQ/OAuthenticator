@@ -174,7 +174,8 @@ extension DPoPSigner {
 		for request: URLRequest,
 		using jwtGenerator: JWTGenerator,
 		token: String?,
-		// FIXME: Remove and use swift crypto to provide sha256, instead of using pkce.hashFunction
+		// FIXME: Remove and use swift crypto internally to provide sha256, instead
+		// of using pkce.hashFunction in the caller to calculate the tokenHash
 		tokenHash: String?,
 		issuingServer: String?,
 		responseProvider: URLResponseProvider
@@ -184,6 +185,14 @@ extension DPoPSigner {
 		if let iss = issuingServer {
 			issuer = URL(string: iss)?.origin
 		}
+
+		// FIXME: calculate tokenHash using the value from the request Authorization
+		// header:
+		//
+		// `Authorization: DPoP access-token`
+		//
+		// which is `access-token`. This requires swift crypto or for DPoP Signer to
+		// have a sha256 hash function supplied.
 
 		// Requests must have a URL with an origin:
 		guard let requestOrigin = request.url?.origin else {
