@@ -1,19 +1,39 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+	import FoundationNetworking
 #endif
 
 /// Function that can execute a `URLRequest`.
 ///
 /// This is used to abstract the actual networking system from the underlying authentication
 /// mechanism.
-public typealias URLResponseProvider = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+public typealias URLResponseProvider =
+	@Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
+
+/// Decodes a OAuth Error Response.
+public struct OAuthErrorResponse: Codable, Hashable, Sendable {
+	public let error: String
+	public let errorDescription: String?
+
+	enum CodingKeys: String, CodingKey {
+		case error
+		case errorDescription = "error_description"
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+
+		error = try container.decode(String.self, forKey: .error)
+		errorDescription = try container.decodeIfPresent(String.self, forKey: .errorDescription)
+	}
+}
 
 /// Holds an access token value and its expiry.
 public struct Token: Codable, Hashable, Sendable {
 	/// The access token.
 	public let value: String
-	
+
 	/// An optional expiry.
 	public let expiry: Date?
 
@@ -41,11 +61,14 @@ public struct Login: Codable, Hashable, Sendable {
 	public var accessToken: Token
 	public var refreshToken: Token?
 
-  // User authorized scopes
-  public var scopes: String?
+	// User authorized scopes
+	public var scopes: String?
 	public var issuingServer: String?
 
-  public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil, issuingServer: String? = nil) {
+	public init(
+		accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil,
+		issuingServer: String? = nil
+	) {
 		self.accessToken = accessToken
 		self.refreshToken = refreshToken
 		self.scopes = scopes
@@ -109,7 +132,7 @@ public struct PARConfiguration: Hashable, Sendable {
 	public let url: URL
 	public let parameters: [String: String]
 
-	public init(url: URL, parameters: [String : String] = [:]) {
+	public init(url: URL, parameters: [String: String] = [:]) {
 		self.url = url
 		self.parameters = parameters
 	}
@@ -157,7 +180,8 @@ public struct TokenHandling: Sendable {
 	}
 
 	/// The output of this is a URL suitable for user authentication in a browser.
-	public typealias AuthorizationURLProvider = @Sendable (AuthorizationURLParameters) async throws -> URL
+	public typealias AuthorizationURLProvider =
+		@Sendable (AuthorizationURLParameters) async throws -> URL
 
 	/// A function that processes the results of an authentication operation
 	///
@@ -166,8 +190,10 @@ public struct TokenHandling: Sendable {
 	/// URL: the authenticated URL from the OAuth service
 	/// URLResponseProvider: the authenticator's provider
 	public typealias LoginProvider = @Sendable (LoginProviderParameters) async throws -> Login
-	public typealias RefreshProvider = @Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
-	public typealias ResponseStatusProvider = @Sendable ((Data, URLResponse)) throws -> ResponseStatus
+	public typealias RefreshProvider =
+		@Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
+	public typealias ResponseStatusProvider =
+		@Sendable ((Data, HTTPURLResponse)) throws -> ResponseStatus
 
 	public let authorizationURLProvider: AuthorizationURLProvider
 	public let loginProvider: LoginProvider
@@ -182,7 +208,8 @@ public struct TokenHandling: Sendable {
 		authorizationURLProvider: @escaping AuthorizationURLProvider,
 		loginProvider: @escaping LoginProvider,
 		refreshProvider: RefreshProvider? = nil,
-		responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized,
+		responseStatusProvider: @escaping ResponseStatusProvider = Self
+			.refreshOrAuthorizeWhenUnauthorized,
 		dpopJWTGenerator: DPoPSigner.JWTGenerator? = nil,
 		pkce: PKCEVerifier? = nil
 
@@ -197,16 +224,16 @@ public struct TokenHandling: Sendable {
 	}
 
 	@Sendable
-	public static func allResponsesValid(result: (Data, URLResponse)) throws -> ResponseStatus {
+	public static func allResponsesValid(result: (Data, HTTPURLResponse)) throws -> ResponseStatus {
 		return .valid
 	}
 
 	@Sendable
-	public static func refreshOrAuthorizeWhenUnauthorized(result: (Data, URLResponse)) throws -> ResponseStatus {
-		guard let response = result.1 as? HTTPURLResponse else {
-			throw AuthenticatorError.httpResponseExpected
-		}
-
+	public static func refreshOrAuthorizeWhenUnauthorized(result: (Data, HTTPURLResponse)) throws
+		-> ResponseStatus
+	{
+		// FIXME: This isn't really to spec: 401 doesn't mean "refresh", it just means unauthorized.
+		let response = result.1
 		if response.statusCode == 401 {
 			return .refresh
 		}
