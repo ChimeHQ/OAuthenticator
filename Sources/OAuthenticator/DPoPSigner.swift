@@ -139,9 +139,9 @@ public final class DPoPSigner {
 extension DPoPSigner {
 	public func buildProof(
 		_ request: inout URLRequest,
-		nonce: String?,
 		isolation: isolated (any Actor),
 		using jwtGenerator: JWTGenerator,
+		nonce: String?,
 		token: String?,
 		tokenHash: String?
 	) async throws {
@@ -204,9 +204,9 @@ extension DPoPSigner {
 		// build proof
 		try await buildProof(
 			&request,
-			nonce: initNonce?.nonce,
 			isolation: isolation,
 			using: jwtGenerator,
+			nonce: initNonce?.nonce,
 			token: token,
 			tokenHash: tokenHash
 		)
@@ -236,9 +236,9 @@ extension DPoPSigner {
 		// repeat once, using newly-established nonce
 		try await buildProof(
 			&request,
-			nonce: nextNonce.nonce,
 			isolation: isolation,
 			using: jwtGenerator,
+			nonce: nextNonce.nonce,
 			token: token,
 			tokenHash: tokenHash
 		)
