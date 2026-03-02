@@ -5,10 +5,10 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'README.md'
-      - 'CODE_OF_CONDUCT.md'
-      - '.editorconfig'
-      - '.spi.yml'
+      - "README.md"
+      - "CODE_OF_CONDUCT.md"
+      - ".editorconfig"
+      - ".spi.yml"
   pull_request:
     branches:
       - main
@@ -40,20 +40,19 @@ jobs:
 
   linux_test:
     name: Test Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      image: swift:${{matrix.swift-version}}
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         swift-version:
-          - 6.1
-          - 6.2
-          - latest
+          - "6.1"
+          - "6.2"
+          - "latest"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Swiftly
-        uses: vapor/swiftly-action@v0.2.0
-        with:
-          toolchain: ${{ matrix.swift-version }}
       - name: Test
         run: swift test
