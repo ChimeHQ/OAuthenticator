@@ -136,7 +136,7 @@ public final class DPoPSigner {
 
 extension DPoPSigner {
 	private func makeRequest(
-		_ request: inout URLRequest,
+		_ request: URLRequest,
 		isolation: isolated (any Actor),
 		responseProvider: URLResponseProvider
 	)
@@ -151,13 +151,13 @@ extension DPoPSigner {
 	}
 
 	public func buildProof(
-		_ request: inout URLRequest,
+		_ request: URLRequest,
 		isolation: isolated (any Actor),
 		using jwtGenerator: JWTGenerator,
 		nonce: String?,
 		token: String?,
 		tokenHash: String?
-	) async throws {
+	) async throws -> URLRequest {
 		guard
 			let method = request.httpMethod,
 			let targetURI = request.url?.targetURI
@@ -183,11 +183,14 @@ extension DPoPSigner {
 
 		let jwt = try await jwtGenerator(params)
 
-		request.setValue(jwt, forHTTPHeaderField: "DPoP")
+		var signedRequest = request
+		signedRequest.setValue(jwt, forHTTPHeaderField: "DPoP")
 
 		if let token {
-			request.setValue("DPoP \(token)", forHTTPHeaderField: "Authorization")
+			signedRequest.setValue("DPoP \(token)", forHTTPHeaderField: "Authorization")
 		}
+
+		return signedRequest
 	}
 
 	public func response(
@@ -201,7 +204,6 @@ extension DPoPSigner {
 		isAuthServer: Bool?,
 		responseProvider: URLResponseProvider
 	) async throws -> (Data, HTTPURLResponse) {
-		var request = request
 		// FIXME: calculate tokenHash using the value from the request Authorization
 		// header:
 		//
@@ -218,8 +220,8 @@ extension DPoPSigner {
 		let initNonce = nonceCache.object(forKey: requestOrigin as NSString)
 
 		// build proof
-		try await buildProof(
-			&request,
+		let request = try await buildProof(
+			request,
 			isolation: isolation,
 			using: jwtGenerator,
 			nonce: initNonce?.nonce,
@@ -228,7 +230,7 @@ extension DPoPSigner {
 		)
 
 		let (data, response) = try await makeRequest(
-			&request,
+			request,
 			isolation: isolation,
 			responseProvider: responseProvider
 		)
@@ -253,8 +255,8 @@ extension DPoPSigner {
 		}
 
 		// repeat once, using newly-established nonce
-		try await buildProof(
-			&request,
+		let retryRequest = try await buildProof(
+			request,
 			isolation: isolation,
 			using: jwtGenerator,
 			nonce: nextNonce.nonce,
@@ -263,7 +265,7 @@ extension DPoPSigner {
 		)
 
 		let (retryData, retryResponse) = try await makeRequest(
-			&request,
+			retryRequest,
 			isolation: isolation,
 			responseProvider: responseProvider
 		)

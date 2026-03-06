@@ -88,7 +88,7 @@ struct DPoPSignerTests {
 	@Test func basicSignature() async throws {
 		let signer = DPoPSigner()
 
-		var request = RequestFor(url: "https://resource.example/test")
+		let request = RequestFor(url: "https://resource.example/test")
 		let assertTokenParams = assertingJWTGenerator(
 			loader: nil,
 			assertions: {
@@ -100,8 +100,8 @@ struct DPoPSignerTests {
 				#expect(parameters.tokenHash == "token_hash")
 			})
 
-		try await signer.buildProof(
-			&request,
+		let signedRequest = try await signer.buildProof(
+			request,
 			isolation: MainActor.shared,
 			using: assertTokenParams,
 			nonce: "test_nonce",
@@ -109,18 +109,18 @@ struct DPoPSignerTests {
 			tokenHash: "token_hash"
 		)
 
-		#expect(request.value(forHTTPHeaderField: "Authorization") == "DPoP token")
-		#expect(request.value(forHTTPHeaderField: "DPoP") == "my_fake_jwt")
+		#expect(signedRequest.value(forHTTPHeaderField: "Authorization") == "DPoP token")
+		#expect(signedRequest.value(forHTTPHeaderField: "DPoP") == "my_fake_jwt")
 	}
 
 	@MainActor
 	@Test func missingTokenHashThrows() async throws {
 		let signer = DPoPSigner()
-		var request = RequestFor(url: "https://resource.example/test")
+		let request = RequestFor(url: "https://resource.example/test")
 
 		await #expect(throws: DPoPError.requestInvalid(request)) {
 			try await signer.buildProof(
-				&request,
+				request,
 				isolation: MainActor.shared,
 				using: genericJWTGenerator(),
 				nonce: "test_nonce",
@@ -134,7 +134,7 @@ struct DPoPSignerTests {
 	@Test func withoutParameters() async throws {
 		let signer = DPoPSigner()
 
-		var request = RequestFor(url: "https://resource.example/test")
+		let request = RequestFor(url: "https://resource.example/test")
 		let assertTokenParams = assertingJWTGenerator(
 			loader: nil,
 			assertions: {
@@ -146,8 +146,8 @@ struct DPoPSignerTests {
 				#expect(parameters.tokenHash == nil)
 			})
 
-		try await signer.buildProof(
-			&request,
+		let signedRequest = try await signer.buildProof(
+			request,
 			isolation: MainActor.shared,
 			using: assertTokenParams,
 			nonce: nil,
@@ -155,8 +155,8 @@ struct DPoPSignerTests {
 			tokenHash: nil
 		)
 
-		#expect(request.value(forHTTPHeaderField: "Authorization") == nil)
-		#expect(request.value(forHTTPHeaderField: "DPoP") == "my_fake_jwt")
+		#expect(signedRequest.value(forHTTPHeaderField: "Authorization") == nil)
+		#expect(signedRequest.value(forHTTPHeaderField: "DPoP") == "my_fake_jwt")
 	}
 
 	@MainActor
@@ -178,7 +178,7 @@ struct DPoPSignerTests {
 				JWTAssertion(htu: "https://example.com/foo", htm: "POST"),
 			]))
 	func handlesParameters(inputRequest: URLRequest, expectedParams: JWTAssertion) async throws {
-		var request = inputRequest
+		let request = inputRequest
 		let signer = DPoPSigner()
 
 		let assertTokenParams = assertingJWTGenerator(
@@ -192,8 +192,8 @@ struct DPoPSignerTests {
 				#expect(parameters.requestEndpoint == expectedParams.htu)
 			})
 
-		try await signer.buildProof(
-			&request,
+		let signedRequest = try await signer.buildProof(
+			request,
 			isolation: MainActor.shared,
 			using: assertTokenParams,
 			nonce: "test_nonce",
@@ -201,8 +201,8 @@ struct DPoPSignerTests {
 			tokenHash: "token_hash"
 		)
 
-		#expect(request.value(forHTTPHeaderField: "Authorization") != nil)
-		#expect(request.value(forHTTPHeaderField: "DPoP") != nil)
+		#expect(signedRequest.value(forHTTPHeaderField: "Authorization") != nil)
+		#expect(signedRequest.value(forHTTPHeaderField: "DPoP") != nil)
 	}
 
 	@MainActor
@@ -214,8 +214,8 @@ struct DPoPSignerTests {
 		var request = URLRequest(url: URL(string: "https://example.com")!)
 		request.setValue(authorization, forHTTPHeaderField: "Authorization")
 
-		try await signer.buildProof(
-			&request,
+		let signedRequest = try await signer.buildProof(
+			request,
 			isolation: MainActor.shared,
 			using: genericJWTGenerator(),
 			nonce: "test_nonce",
@@ -223,8 +223,8 @@ struct DPoPSignerTests {
 			tokenHash: "token_hash"
 		)
 
-		#expect(request.value(forHTTPHeaderField: "Authorization") == "DPoP token")
-		#expect(request.value(forHTTPHeaderField: "DPoP") == "my_fake_jwt")
+		#expect(signedRequest.value(forHTTPHeaderField: "Authorization") == "DPoP token")
+		#expect(signedRequest.value(forHTTPHeaderField: "DPoP") == "my_fake_jwt")
 	}
 
 	@MainActor
@@ -242,7 +242,7 @@ struct DPoPSignerTests {
 
 		await #expect(throws: DPoPError.requestInvalid(request)) {
 			try await signer.buildProof(
-				&request,
+				request,
 				isolation: MainActor.shared,
 				using: genericJWTGenerator(),
 				nonce: "test_nonce",
@@ -251,6 +251,7 @@ struct DPoPSignerTests {
 			)
 		}
 
+		// Should not mutate request:
 		#expect(request.value(forHTTPHeaderField: "Authorization") == authorization)
 		#expect(request.value(forHTTPHeaderField: "DPoP") == nil)
 	}
