@@ -14,6 +14,9 @@ public enum AuthenticatorError: Error, Hashable {
 	case refreshUnsupported
 	case refreshNotPossible
 	case tokenInvalid
+	case invalidRequest(String, String)
+	case invalidGrant(String, String)
+	case unrecognizedError(String, String)
 	case manualAuthenticationRequired
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
