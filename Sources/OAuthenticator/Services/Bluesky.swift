@@ -70,6 +70,7 @@ public enum Bluesky {
 		validator: @escaping TokenSubscriberValidator
 	) -> TokenHandling {
 		TokenHandling(
+			issuer: server.issuer,
 			parConfiguration: PARConfiguration(
 				url: URL(string: server.pushedAuthorizationRequestEndpoint)!,
 				parameters: { if let account { ["login_hint": account] } else { [:] } }()
@@ -124,28 +125,8 @@ public enum Bluesky {
 		server: ServerMetadata, validator: @escaping TokenSubscriberValidator
 	) -> TokenHandling.LoginProvider {
 		return { params in
-			// decode the params in the redirectURL
-			guard
-				let redirectComponents = URLComponents(
-					url: params.redirectURL, resolvingAgainstBaseURL: false)
-			else {
-				throw AuthenticatorError.missingTokenURL
-			}
-
-			guard
-				let authCode = redirectComponents.queryItems?.first(where: { $0.name == "code" })?.value,
-				let iss = redirectComponents.queryItems?.first(where: { $0.name == "iss" })?.value,
-				let state = redirectComponents.queryItems?.first(where: { $0.name == "state" })?.value
-			else {
+			guard let authCode = params.redirectParams.firstQueryValue("code") else {
 				throw AuthenticatorError.missingAuthorizationCode
-			}
-
-			if state != params.stateToken {
-				throw AuthenticatorError.stateTokenMismatch(state, params.stateToken)
-			}
-
-			if iss != server.issuer {
-				throw AuthenticatorError.issuingServerMismatch(iss, server.issuer)
 			}
 
 			guard let verifier = params.pcke?.verifier else {

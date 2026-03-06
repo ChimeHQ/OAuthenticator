@@ -14,9 +14,11 @@ public enum AuthenticatorError: Error, Hashable {
 	case refreshUnsupported
 	case refreshNotPossible
 	case tokenInvalid
+	case accessDenied
 	case invalidRequest(String, String)
 	case invalidGrant(String, String)
 	case unrecognizedError(String, String)
+	case invalidScope
 	case manualAuthenticationRequired
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
@@ -319,12 +321,51 @@ extension Authenticator {
 
 		let scheme = try config.appCredentials.callbackURLScheme
 
-		let callbackURL = try await userAuthenticator(tokenURL, scheme)
+		let redirectURL = try await userAuthenticator(tokenURL, scheme)
+		guard
+			let redirectParams = URLComponents(url: redirectURL, resolvingAgainstBaseURL: false)
+		else {
+			throw AuthenticatorError.missingTokenURL
+		}
+
+		let iss = redirectParams.firstQueryValue("iss")
+		let state = redirectParams.firstQueryValue("state")
+
+		if let serverIssuer = config.tokenHandling.issuer {
+			if serverIssuer != iss {
+				throw AuthenticatorError.issuingServerMismatch(iss ?? "iss parameter missing", serverIssuer)
+			}
+		}
+
+		if let state = state {
+			if state != stateToken {
+				throw AuthenticatorError.stateTokenMismatch(state, stateToken)
+			}
+		}
+
+		let error = redirectParams.firstQueryValue("error")
+		let errorDescription = redirectParams.firstQueryValue("error_description")
+
+		if let error = error {
+			switch error.lowercased() {
+			case "access_denied":
+				throw AuthenticatorError.accessDenied
+			case "invalid_request":
+				throw AuthenticatorError.invalidRequest(error, errorDescription ?? "Invalid Request")
+			case "invalid_scope":
+				throw AuthenticatorError.invalidScope
+			default:
+				// We do actually have error and error_description parameters, so
+				// could create a more specific error than missingAuthorizationCode
+				throw AuthenticatorError.missingAuthorizationCode
+			}
+		}
 
 		let params = TokenHandling.LoginProviderParameters(
 			authorizationURL: tokenURL,
 			credentials: config.appCredentials,
-			redirectURL: callbackURL,
+			redirectURL: redirectURL,
+			redirectParams: redirectParams,
 			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) },
 			stateToken: stateToken,
 			pcke: config.tokenHandling.pkce

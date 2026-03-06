@@ -436,6 +436,122 @@ struct AuthenticatorTests {
 	}
 
 	@Test
+	func manualAuthenticationWithStateMismatch() async throws {
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+			return URL(string: "https://server-metadata.test/authorize")!
+		}
+
+		let loginProvider: TokenHandling.LoginProvider = { params in
+			return Login(token: "TOKEN")
+		}
+
+		let tokenHandling = TokenHandling(
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let userAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+			return URL(string: "my://auth?state=invalid_state")!
+		}
+
+		// Configure Authenticator with result callback
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			tokenHandling: tokenHandling,
+			mode: .manualOnly,
+			userAuthenticator: userAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: nil)
+		await #expect {
+			try await auth.authenticate()
+		} throws: { error in
+			switch error {
+			// We don't actually have access to the expected value which is the private stateToken on Authenticator
+			case AuthenticatorError.stateTokenMismatch(let actual, let expected)
+			where actual == "invalid_state" && !expected.isEmpty:
+				return true
+			default:
+				return false
+			}
+		}
+	}
+
+	@Test
+	func manualAuthenticationWithIssuingServerMismatch() async throws {
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+			return URL(string: "https://server-metadata.test/authorize?client_id=test")!
+		}
+
+		let loginProvider: TokenHandling.LoginProvider = { params in
+			return Login(token: "TOKEN")
+		}
+
+		let tokenHandling = TokenHandling(
+			issuer: "https://server-metadata.test",
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let userAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+			return URL(string: "my://auth?iss=https://server-metadata.invalid")!
+		}
+
+		// Configure Authenticator with result callback
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			tokenHandling: tokenHandling,
+			mode: .manualOnly,
+			userAuthenticator: userAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: nil)
+		await #expect(
+			throws: AuthenticatorError.issuingServerMismatch(
+				"https://server-metadata.invalid", "https://server-metadata.test")
+		) {
+			try await auth.authenticate()
+		}
+	}
+
+	@Test
+	func manualAuthenticationWithValidIssuerButAccessDenied() async throws {
+		let urlProvider: TokenHandling.AuthorizationURLProvider = { params in
+			return URL(string: "https://server-metadata.test/authorize?client_id=test")!
+		}
+
+		let loginProvider: TokenHandling.LoginProvider = { params in
+			return Login(token: "TOKEN")
+		}
+
+		let tokenHandling = TokenHandling(
+			issuer: "https://server-metadata.test",
+			authorizationURLProvider: urlProvider,
+			loginProvider: loginProvider,
+			responseStatusProvider: TokenHandling.allResponsesValid
+		)
+
+		let userAuthenticator: Authenticator.UserAuthenticator = { url, scheme in
+			return URL(string: "my://auth?iss=https://server-metadata.test&error=access_denied")!
+		}
+
+		// Configure Authenticator with result callback
+		let config = Authenticator.Configuration(
+			appCredentials: Self.mockCredentials,
+			tokenHandling: tokenHandling,
+			mode: .manualOnly,
+			userAuthenticator: userAuthenticator
+		)
+
+		let auth = Authenticator(config: config, urlLoader: nil)
+		await #expect(throws: AuthenticatorError.accessDenied) {
+			try await auth.authenticate()
+		}
+	}
+
+	@Test
 	func unauthorizedRequestRefreshes() async throws {
 		let requestedURL = URL(string: "https://example.com")!
 

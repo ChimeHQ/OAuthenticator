@@ -144,6 +144,7 @@ public struct TokenHandling: Sendable {
 		public let authorizationURL: URL
 		public let credentials: AppCredentials
 		public let redirectURL: URL
+		public let redirectParams: URLComponents
 		public let responseProvider: URLResponseProvider
 		public let stateToken: String
 		public let pcke: PKCEVerifier?
@@ -151,7 +152,8 @@ public struct TokenHandling: Sendable {
 		public init(
 			authorizationURL: URL,
 			credentials: AppCredentials,
-			redirectURL: URL,
+			redirectURL: URL,  // Deprecated, however, fixing in other services is too complex
+			redirectParams: URLComponents,
 			responseProvider: @escaping URLResponseProvider,
 			stateToken: String,
 			pcke: PKCEVerifier?
@@ -159,6 +161,7 @@ public struct TokenHandling: Sendable {
 			self.authorizationURL = authorizationURL
 			self.credentials = credentials
 			self.redirectURL = redirectURL
+			self.redirectParams = redirectParams
 			self.responseProvider = responseProvider
 			self.stateToken = stateToken
 			self.pcke = pcke
@@ -178,6 +181,7 @@ public struct TokenHandling: Sendable {
 	public typealias RefreshProvider = @Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
 	public typealias ResponseStatusProvider = @Sendable ((Data, URLResponse)) throws -> ResponseStatus
 
+	public let issuer: String?
 	public let authorizationURLProvider: AuthorizationURLProvider
 	public let loginProvider: LoginProvider
 	public let refreshProvider: RefreshProvider?
@@ -187,15 +191,18 @@ public struct TokenHandling: Sendable {
 	public let pkce: PKCEVerifier?
 
 	public init(
+		issuer: String? = nil,
 		parConfiguration: PARConfiguration? = nil,
 		authorizationURLProvider: @escaping AuthorizationURLProvider,
 		loginProvider: @escaping LoginProvider,
 		refreshProvider: RefreshProvider? = nil,
-		responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized,
+		responseStatusProvider: @escaping ResponseStatusProvider = Self
+			.refreshOrAuthorizeWhenUnauthorized,
 		dpopJWTGenerator: DPoPSigner.JWTGenerator? = nil,
 		pkce: PKCEVerifier? = nil
 
 	) {
+		self.issuer = issuer
 		self.authorizationURLProvider = authorizationURLProvider
 		self.loginProvider = loginProvider
 		self.refreshProvider = refreshProvider
