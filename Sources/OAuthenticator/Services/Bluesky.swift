@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+	import FoundationNetworking
 #endif
 
 /// Find the spec here: https://atproto.com/specs/oauth
@@ -118,10 +119,15 @@ public enum Bluesky {
 		}
 	}
 
-	private static func loginProvider(server: ServerMetadata, validator: @escaping TokenSubscriberValidator) -> TokenHandling.LoginProvider {
+	private static func loginProvider(
+		server: ServerMetadata, validator: @escaping TokenSubscriberValidator
+	) -> TokenHandling.LoginProvider {
 		return { params in
 			// decode the params in the redirectURL
-			guard let redirectComponents = URLComponents(url: params.redirectURL, resolvingAgainstBaseURL: false) else {
+			guard
+				let redirectComponents = URLComponents(
+					url: params.redirectURL, resolvingAgainstBaseURL: false)
+			else {
 				throw AuthenticatorError.missingTokenURL
 			}
 
@@ -141,11 +147,6 @@ public enum Bluesky {
 				throw AuthenticatorError.issuingServerMismatch(iss, server.issuer)
 			}
 
-			// and use them (plus just a little more) to construct the token request
-			guard let tokenURL = URL(string: server.tokenEndpoint) else {
-				throw AuthenticatorError.missingTokenURL
-			}
-
 			guard let verifier = params.pcke?.verifier else {
 				throw AuthenticatorError.pkceRequired
 			}
@@ -158,37 +159,21 @@ public enum Bluesky {
 				client_id: params.credentials.clientId
 			)
 
-			var request = URLRequest(url: tokenURL)
-
-			request.httpMethod = "POST"
-			request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-			request.setValue("application/json", forHTTPHeaderField: "Accept")
-			request.httpBody = try JSONEncoder().encode(tokenRequest)
-
-			let (data, _) = try await params.responseProvider(request)
-
-			let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
-
-			guard tokenResponse.token_type == "DPoP" else {
-				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
-			}
-
-			if try await validator(tokenResponse, server.issuer) == false {
-				throw AuthenticatorError.tokenInvalid
-			}
-
-			return tokenResponse.login(for: iss)
+			return try await Bluesky.requestToken(
+				tokenRequest,
+				authorizationServer: server,
+				validator: validator,
+				responseProvider: params.responseProvider
+			)
 		}
 	}
 
-	private static func refreshProvider(server: ServerMetadata, validator: @escaping TokenSubscriberValidator) -> TokenHandling.RefreshProvider {
+	private static func refreshProvider(
+		server: ServerMetadata, validator: @escaping TokenSubscriberValidator
+	) -> TokenHandling.RefreshProvider {
 		{ login, credentials, responseProvider -> Login in
 			guard let refreshToken = login.refreshToken?.value else {
 				throw AuthenticatorError.refreshNotPossible
-			}
-
-			guard let tokenURL = URL(string: server.tokenEndpoint) else {
-				throw AuthenticatorError.missingTokenURL
 			}
 
 			let tokenRequest = RefreshTokenRequest(
@@ -198,36 +183,65 @@ public enum Bluesky {
 				client_id: credentials.clientId
 			)
 
-			var request = URLRequest(url: tokenURL)
-
-			request.httpMethod = "POST"
-			request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-			request.httpBody = try JSONEncoder().encode(tokenRequest)
-
-			let (data, response) = try await responseProvider(request)
-
-			// make sure that we got a successful HTTP response
-			guard
-				let httpResponse = response as? HTTPURLResponse,
-				httpResponse.statusCode >= 200 && httpResponse.statusCode < 300
-			else {
-				print("data:", String(decoding: data, as: UTF8.self))
-				print("response:", response)
-
-				throw AuthenticatorError.refreshNotPossible
-			}
-
-			let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
-
-			guard tokenResponse.token_type == "DPoP" else {
-				throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
-			}
-
-			if try await validator(tokenResponse, server.issuer) == false {
-				throw AuthenticatorError.tokenInvalid
-			}
-
-			return tokenResponse.login(for: server.issuer)
+			return try await Bluesky.requestToken(
+				tokenRequest,
+				authorizationServer: server,
+				validator: validator,
+				responseProvider: responseProvider
+			)
 		}
+	}
+
+	private static func requestToken(
+		_ tokenRequest: Encodable,
+		authorizationServer: ServerMetadata,
+		validator: @escaping TokenSubscriberValidator,
+		responseProvider: URLResponseProvider
+	) async throws -> Login {
+		guard let tokenURL = URL(string: authorizationServer.tokenEndpoint) else {
+			throw AuthenticatorError.missingTokenURL
+		}
+
+		var request = URLRequest(url: tokenURL)
+
+		request.httpMethod = "POST"
+		request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+		request.setValue("application/json", forHTTPHeaderField: "Accept")
+		request.httpBody = try JSONEncoder().encode(tokenRequest)
+
+		let (data, response) = try await responseProvider(request)
+
+		guard
+			let httpResponse = response as? HTTPURLResponse,
+			httpResponse.statusCode >= 200 && httpResponse.statusCode < 300
+		else {
+			if let error = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data) {
+				switch error.error {
+				case "invalid_request":
+					throw AuthenticatorError.invalidRequest(error.error, error.errorDescription ?? "")
+				case "invalid_grant":
+					throw AuthenticatorError.invalidGrant(error.error, error.errorDescription ?? "")
+				default:
+					throw AuthenticatorError.unrecognizedError(error.error, error.errorDescription ?? "")
+				}
+			}
+
+			throw AuthenticatorError.unrecognizedError(
+				"unknown_response", "Received an unexpected response from the authorization server")
+		}
+
+		guard let tokenResponse = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
+			throw AuthenticatorError.unrecognizedError("invalid_json", "Decoding response JSON")
+		}
+
+		guard tokenResponse.token_type == "DPoP" else {
+			throw AuthenticatorError.dpopTokenExpected(tokenResponse.token_type)
+		}
+
+		if try await validator(tokenResponse, authorizationServer.issuer) == false {
+			throw AuthenticatorError.tokenInvalid
+		}
+
+		return tokenResponse.login(for: authorizationServer.issuer)
 	}
 }
