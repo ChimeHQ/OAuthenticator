@@ -14,6 +14,11 @@ public enum AuthenticatorError: Error, Hashable {
 	case refreshUnsupported
 	case refreshNotPossible
 	case tokenInvalid
+	case accessDenied
+	case invalidRequest(String, String)
+	case invalidGrant(String, String)
+	case unrecognizedError(String, String)
+	case invalidScope
 	case manualAuthenticationRequired
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
@@ -26,6 +31,7 @@ public enum AuthenticatorError: Error, Hashable {
 	case stateTokenMismatch(String, String)
 	case issuingServerMismatch(String, String)
 	case pkceRequired
+	case rateLimited(HTTPURLResponse)
 }
 
 /// Manage state required to executed authenticated URLRequests.
@@ -308,20 +314,59 @@ extension Authenticator {
 			pcke: config.tokenHandling.pkce,
 			parRequestURI: parRequestURI,
 			stateToken: stateToken,
-			responseProvider: { try await self.dpopResponse(for: $0, login: nil) }
+			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) }
 		)
 
 		let tokenURL = try await config.tokenHandling.authorizationURLProvider(authConfig)
 
 		let scheme = try config.appCredentials.callbackURLScheme
 
-		let	callbackURL = try await userAuthenticator(tokenURL, scheme)
+		let redirectURL = try await userAuthenticator(tokenURL, scheme)
+		guard
+			let redirectParams = URLComponents(url: redirectURL, resolvingAgainstBaseURL: false)
+		else {
+			throw AuthenticatorError.missingTokenURL
+		}
+
+		let iss = redirectParams.firstQueryValue("iss")
+		let state = redirectParams.firstQueryValue("state")
+
+		if let serverIssuer = config.tokenHandling.issuer {
+			if serverIssuer != iss {
+				throw AuthenticatorError.issuingServerMismatch(iss ?? "iss parameter missing", serverIssuer)
+			}
+		}
+
+		if let state = state {
+			if state != stateToken {
+				throw AuthenticatorError.stateTokenMismatch(state, stateToken)
+			}
+		}
+
+		let error = redirectParams.firstQueryValue("error")
+		let errorDescription = redirectParams.firstQueryValue("error_description")
+
+		if let error = error {
+			switch error.lowercased() {
+			case "access_denied":
+				throw AuthenticatorError.accessDenied
+			case "invalid_request":
+				throw AuthenticatorError.invalidRequest(error, errorDescription ?? "Invalid Request")
+			case "invalid_scope":
+				throw AuthenticatorError.invalidScope
+			default:
+				// We do actually have error and error_description parameters, so
+				// could create a more specific error than missingAuthorizationCode
+				throw AuthenticatorError.missingAuthorizationCode
+			}
+		}
 
 		let params = TokenHandling.LoginProviderParameters(
 			authorizationURL: tokenURL,
 			credentials: config.appCredentials,
-			redirectURL: callbackURL,
-			responseProvider: { try await self.dpopResponse(for: $0, login: nil) },
+			redirectURL: redirectURL,
+			redirectParams: redirectParams,
+			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) },
 			stateToken: stateToken,
 			pcke: config.tokenHandling.pkce
 		)
@@ -347,7 +392,11 @@ extension Authenticator {
 		}
 
 		do {
-			let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: nil) })
+			let login = try await refreshProvider(
+				login, config.appCredentials,
+				{
+					try await self.dpopResponse(for: $0, login: nil, isAuthServer: true)
+				})
 
 			try await storeLogin(login)
 
@@ -365,7 +414,7 @@ extension Authenticator {
 		}
 
 		let challenge = pkce.challenge
-		let scopes = config.appCredentials.scopes.joined(separator: " ")
+		let scopes = config.appCredentials.scopeString
 		let callbackURI = config.appCredentials.callbackURL
 		let clientId = config.appCredentials.clientId
 
@@ -391,9 +440,34 @@ extension Authenticator {
 
 		request.httpBody = Data(body.utf8)
 
-		let (parData, _) = try await dpopResponse(for: request, login: nil)
+		let (data, response) = try await self.dpopResponse(for: request, login: nil, isAuthServer: true)
 
-		return try JSONDecoder().decode(PARResponse.self, from: parData)
+		guard let httpResponse = response as? HTTPURLResponse else {
+			throw AuthenticatorError.httpResponseExpected
+		}
+
+		switch httpResponse.statusCode {
+		case 201:
+			return try JSONDecoder().decode(PARResponse.self, from: data)
+		// Expected response error status codes 405, 413, 429:
+		// See: https://www.rfc-editor.org/rfc/rfc9126.html#section-2.3
+		case 413:
+			throw AuthenticatorError.invalidRequest("invalid_request", "PAR Request body too large")
+		case 429:
+			throw AuthenticatorError.rateLimited(httpResponse)
+		default:
+			if let error = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data) {
+				switch error.error {
+				case "invalid_request":
+					throw AuthenticatorError.invalidRequest(error.error, error.errorDescription ?? "")
+				default:
+					throw AuthenticatorError.unrecognizedError(error.error, error.errorDescription ?? "")
+				}
+			} else {
+				throw AuthenticatorError.unrecognizedError(
+					"unknown", "An unknown error occurred when making pushed authorization request")
+			}
+		}
 	}
 
 	private func getPARRequestURI() async throws -> String? {
@@ -412,7 +486,31 @@ extension Authenticator {
 		{ try await self.response(for: $0) }
 	}
 
-	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (Data, URLResponse) {
+	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (
+		Data, URLResponse
+	) {
+		var issuer: String? = nil
+		if let iss = login?.issuingServer {
+			issuer = URL(string: iss)?.origin
+		}
+
+		guard let requestOrigin = request.url?.origin else {
+			throw DPoPError.requestInvalid(request)
+		}
+
+		let isAuthServer = issuer == nil || issuer == requestOrigin
+
+		return try await dpopResponse(
+			for: request,
+			login: login,
+			isAuthServer: isAuthServer
+		)
+	}
+
+	private func dpopResponse(for request: URLRequest, login: Login?, isAuthServer: Bool?)
+		async throws -> (Data, URLResponse)
+	{
+		print("Request: \(request.httpMethod!) - \(request.url?.absoluteString ?? "missing url")")
 		guard let generator = config.tokenHandling.dpopJWTGenerator else {
 			return try await urlLoader(request)
 		}
@@ -430,8 +528,8 @@ extension Authenticator {
 			using: generator,
 			token: token,
 			tokenHash: tokenHash,
-			issuingServer: login?.issuingServer,
-			provider: urlLoader
+			isAuthServer: isAuthServer,
+			responseProvider: urlLoader
 		)
 	}
 }

@@ -41,15 +41,24 @@ public struct Login: Codable, Hashable, Sendable {
 	public var accessToken: Token
 	public var refreshToken: Token?
 
-  // User authorized scopes
-  public var scopes: String?
+	// User authorized scopes
+	public var scopes: String?
 	public var issuingServer: String?
+	
+	public var additionalParams: [String: String]?
 
-  public init(accessToken: Token, refreshToken: Token? = nil, scopes: String? = nil, issuingServer: String? = nil) {
+	public init(
+		accessToken: Token,
+		refreshToken: Token? = nil,
+		scopes: String? = nil,
+		issuingServer: String? = nil,
+		additionalParams: [String: String]? = nil,
+	) {
 		self.accessToken = accessToken
 		self.refreshToken = refreshToken
 		self.scopes = scopes
 		self.issuingServer = issuingServer
+		self.additionalParams = additionalParams
 	}
 
 	public init(token: String, validUntilDate: Date? = nil) {
@@ -135,6 +144,7 @@ public struct TokenHandling: Sendable {
 		public let authorizationURL: URL
 		public let credentials: AppCredentials
 		public let redirectURL: URL
+		public let redirectParams: URLComponents
 		public let responseProvider: URLResponseProvider
 		public let stateToken: String
 		public let pcke: PKCEVerifier?
@@ -142,7 +152,8 @@ public struct TokenHandling: Sendable {
 		public init(
 			authorizationURL: URL,
 			credentials: AppCredentials,
-			redirectURL: URL,
+			redirectURL: URL,  // Deprecated, however, fixing in other services is too complex
+			redirectParams: URLComponents,
 			responseProvider: @escaping URLResponseProvider,
 			stateToken: String,
 			pcke: PKCEVerifier?
@@ -150,6 +161,7 @@ public struct TokenHandling: Sendable {
 			self.authorizationURL = authorizationURL
 			self.credentials = credentials
 			self.redirectURL = redirectURL
+			self.redirectParams = redirectParams
 			self.responseProvider = responseProvider
 			self.stateToken = stateToken
 			self.pcke = pcke
@@ -169,6 +181,7 @@ public struct TokenHandling: Sendable {
 	public typealias RefreshProvider = @Sendable (Login, AppCredentials, URLResponseProvider) async throws -> Login
 	public typealias ResponseStatusProvider = @Sendable ((Data, URLResponse)) throws -> ResponseStatus
 
+	public let issuer: String?
 	public let authorizationURLProvider: AuthorizationURLProvider
 	public let loginProvider: LoginProvider
 	public let refreshProvider: RefreshProvider?
@@ -178,15 +191,18 @@ public struct TokenHandling: Sendable {
 	public let pkce: PKCEVerifier?
 
 	public init(
+		issuer: String? = nil,
 		parConfiguration: PARConfiguration? = nil,
 		authorizationURLProvider: @escaping AuthorizationURLProvider,
 		loginProvider: @escaping LoginProvider,
 		refreshProvider: RefreshProvider? = nil,
-		responseStatusProvider: @escaping ResponseStatusProvider = Self.refreshOrAuthorizeWhenUnauthorized,
+		responseStatusProvider: @escaping ResponseStatusProvider = Self
+			.refreshOrAuthorizeWhenUnauthorized,
 		dpopJWTGenerator: DPoPSigner.JWTGenerator? = nil,
 		pkce: PKCEVerifier? = nil
 
 	) {
+		self.issuer = issuer
 		self.authorizationURLProvider = authorizationURLProvider
 		self.loginProvider = loginProvider
 		self.refreshProvider = refreshProvider
@@ -207,6 +223,7 @@ public struct TokenHandling: Sendable {
 			throw AuthenticatorError.httpResponseExpected
 		}
 
+		// FIXME: This isn't really to spec: 401 doesn't mean "refresh", it just means unauthorized.
 		if response.statusCode == 401 {
 			return .refresh
 		}
