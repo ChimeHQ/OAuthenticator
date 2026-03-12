@@ -237,16 +237,13 @@ extension Authenticator {
 		try await storage.storeLogin(login)
 	}
 
-	private func clearLogin() async {
-		guard let storage = config.loginStorage else { return }
-
-		let invalidLogin = Login(token: "invalid", validUntilDate: .distantPast)
-
-		do {
-			try await storage.storeLogin(invalidLogin)
-		} catch {
-			print("failed to store an invalid login, possibly stuck", error)
+	private func clearLogin() async throws {
+		guard let storage = config.loginStorage else {
+			self.localLogin = nil
+			return
 		}
+
+		try await storage.clearLogin()
 	}
 }
 
@@ -274,21 +271,21 @@ extension Authenticator {
 
 		var login: Login
 		do {
-				do {
-						login = try await loginFromTask(task: task)
-				} catch AuthenticatorError.tokenInvalid {
-						let newTask = makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
-						login = try await loginFromTask(task: newTask)
-				}
+			do {
+				login = try await loginFromTask(task: task)
+			} catch AuthenticatorError.tokenInvalid {
+				let newTask = makeLoginTask(manual: manual, userAuthenticator: userAuthenticator)
+				login = try await loginFromTask(task: newTask)
+			}
 
-				// Inform authenticationResult closure of new login information
-				await self.config.authenticationStatusHandler?(.success(login))
+			// Inform authenticationResult closure of new login information
+			await self.config.authenticationStatusHandler?(.success(login))
 		}
 		catch let authenticatorError as AuthenticatorError {
-				await self.config.authenticationStatusHandler?(.failure(authenticatorError))
+			await self.config.authenticationStatusHandler?(.failure(authenticatorError))
 
-				// Rethrow error
-				throw authenticatorError
+			// Rethrow error
+			throw authenticatorError
 		}
 
 		return login
@@ -374,7 +371,7 @@ extension Authenticator {
 
 			return login
 		} catch {
-			await clearLogin()
+			try await clearLogin()
 
 			throw error
 		}

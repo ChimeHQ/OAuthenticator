@@ -5,10 +5,10 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'README.md'
-      - 'CODE_OF_CONDUCT.md'
-      - '.editorconfig'
-      - '.spi.yml'
+      - "README.md"
+      - "CODE_OF_CONDUCT.md"
+      - ".editorconfig"
+      - ".spi.yml"
   pull_request:
     branches:
       - main
@@ -21,7 +21,7 @@ jobs:
   test:
     name: Test
     timeout-minutes: 30
-    runs-on: macOS-15
+    runs-on: macos-26
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.0.app
     strategy:
@@ -30,9 +30,9 @@ jobs:
           - "platform=macOS"
           - "platform=macOS,variant=Mac Catalyst"
           - "platform=iOS Simulator,name=iPhone 16e"
-          - "platform=tvOS Simulator,name=Apple TV,OS=26.0"
-          - "platform=watchOS Simulator,name=Apple Watch Series 11 (42mm),OS=26.0"
-          - "platform=visionOS Simulator,name=Apple Vision Pro,OS=26.0"
+          - "platform=tvOS Simulator,name=Apple TV"
+          - "platform=watchOS Simulator,name=Apple Watch Series 11 (42mm)"
+          - "platform=visionOS Simulator,name=Apple Vision Pro"
     steps:
       - uses: actions/checkout@v4
       - name: Test platform ${{ matrix.destination }}
@@ -40,20 +40,20 @@ jobs:
 
   linux_test:
     name: Test Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      image: swift:${{matrix.swift-version}}
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         swift-version:
-          - 6.1
-          - 6.2
-          - latest
+          - "6.1"
+          - "6.2"
+          - "latest"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Swiftly
-        uses: vapor/swiftly-action@v0.2.0
-        with:
-          toolchain: ${{ matrix.swift-version }}
+      - run: swift --version
       - name: Test
         run: swift test
