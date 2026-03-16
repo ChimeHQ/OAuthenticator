@@ -27,6 +27,7 @@ public enum AuthenticatorError: Error, Hashable {
 	case issuingServerMismatch(String, String)
 	case pkceRequired
 	case tokenRequestFailed(String)
+	case parRequestFailed(String)
 }
 
 extension AuthenticatorError: LocalizedError {
@@ -412,7 +413,16 @@ extension Authenticator {
 
 		request.httpBody = Data(body.utf8)
 
-		let (parData, _) = try await dpopResponse(for: request, login: nil)
+		let (parData, parResponse) = try await dpopResponse(for: request, login: nil)
+
+		guard let httpResponse = parResponse as? HTTPURLResponse else {
+			throw AuthenticatorError.httpResponseExpected
+		}
+
+		guard (200..<300).contains(httpResponse.statusCode) else {
+			let body = String(decoding: parData, as: UTF8.self)
+			throw AuthenticatorError.parRequestFailed(body)
+		}
 
 		return try JSONDecoder().decode(PARResponse.self, from: parData)
 	}
