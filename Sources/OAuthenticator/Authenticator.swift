@@ -33,16 +33,48 @@ public enum AuthenticatorError: Error, Hashable {
 extension AuthenticatorError: LocalizedError {
 	public var errorDescription: String? {
 		switch self {
-		case .tokenRequestFailed(let message):
-			return "Token request failed: \(message)"
+		case .missingScheme:
+			return "Missing URL scheme in callback"
+		case .missingAuthorizationCode:
+			return "Missing authorization code in callback URL"
+		case .missingTokenURL:
+			return "Missing token endpoint URL"
+		case .missingAuthorizationURL:
+			return "Missing authorization endpoint URL"
+		case .refreshUnsupported:
+			return "Token refresh is not supported"
+		case .refreshNotPossible:
+			return "Token refresh is not possible (no valid refresh token)"
+		case .tokenInvalid:
+			return "Token is invalid"
+		case .manualAuthenticationRequired:
+			return "Manual authentication required"
+		case .httpResponseExpected:
+			return "Expected HTTP response but received a different type"
+		case .unauthorizedRefreshFailed:
+			return "Unauthorized refresh attempt failed"
+		case .missingRedirectURI:
+			return "Missing redirect URI"
+		case .missingRefreshToken:
+			return "Missing refresh token"
+		case .missingScope:
+			return "Missing scope"
+		case .failingAuthenticatorUsed:
+			return "Failing authenticator placeholder was used"
 		case .dpopTokenExpected(let value):
 			return "Expected DPoP token but received: \(value)"
+		case .parRequestURIMissing:
+			return "PAR request URI missing from response"
 		case .stateTokenMismatch(let received, let expected):
 			return "State token mismatch. Received \(received), expected \(expected)."
 		case .issuingServerMismatch(let received, let expected):
 			return "Issuer mismatch. Received \(received), expected \(expected)."
-		default:
-			return nil
+		case .pkceRequired:
+			return "PKCE is required but not configured"
+		case .tokenRequestFailed(let message):
+			return "Token request failed: \(message)"
+		case .parRequestFailed(let message):
+			return "PAR request failed: \(message)"
 		}
 	}
 }
