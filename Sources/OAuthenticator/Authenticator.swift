@@ -308,20 +308,20 @@ extension Authenticator {
 			pcke: config.tokenHandling.pkce,
 			parRequestURI: parRequestURI,
 			stateToken: stateToken,
-			responseProvider: { try await self.dpopResponse(for: $0, login: nil) }
+			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) }
 		)
 
 		let tokenURL = try await config.tokenHandling.authorizationURLProvider(authConfig)
 
 		let scheme = try config.appCredentials.callbackURLScheme
 
-		let	callbackURL = try await userAuthenticator(tokenURL, scheme)
+		let callbackURL = try await userAuthenticator(tokenURL, scheme)
 
 		let params = TokenHandling.LoginProviderParameters(
 			authorizationURL: tokenURL,
 			credentials: config.appCredentials,
 			redirectURL: callbackURL,
-			responseProvider: { try await self.dpopResponse(for: $0, login: nil) },
+			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) },
 			stateToken: stateToken,
 			pcke: config.tokenHandling.pkce
 		)
@@ -347,7 +347,11 @@ extension Authenticator {
 		}
 
 		do {
-			let login = try await refreshProvider(login, config.appCredentials, { try await self.dpopResponse(for: $0, login: nil) })
+			let login = try await refreshProvider(
+				login, config.appCredentials,
+				{
+					try await self.dpopResponse(for: $0, login: nil, isAuthServer: true)
+				})
 
 			try await storeLogin(login)
 
@@ -365,7 +369,7 @@ extension Authenticator {
 		}
 
 		let challenge = pkce.challenge
-		let scopes = config.appCredentials.scopes.joined(separator: " ")
+		let scopes = config.appCredentials.scopeString
 		let callbackURI = config.appCredentials.callbackURL
 		let clientId = config.appCredentials.clientId
 
@@ -391,7 +395,7 @@ extension Authenticator {
 
 		request.httpBody = Data(body.utf8)
 
-		let (parData, _) = try await dpopResponse(for: request, login: nil)
+		let (parData, _) = try await self.dpopResponse(for: request, login: nil, isAuthServer: true)
 
 		return try JSONDecoder().decode(PARResponse.self, from: parData)
 	}
@@ -412,7 +416,31 @@ extension Authenticator {
 		{ try await self.response(for: $0) }
 	}
 
-	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (Data, URLResponse) {
+	private func dpopResponse(for request: URLRequest, login: Login?) async throws -> (
+		Data, URLResponse
+	) {
+		var issuer: String? = nil
+		if let iss = login?.issuingServer {
+			issuer = URL(string: iss)?.origin
+		}
+
+		guard let requestOrigin = request.url?.origin else {
+			throw DPoPError.requestInvalid(request)
+		}
+
+		let isAuthServer = issuer == nil || issuer == requestOrigin
+
+		return try await dpopResponse(
+			for: request,
+			login: login,
+			isAuthServer: isAuthServer
+		)
+	}
+
+	private func dpopResponse(for request: URLRequest, login: Login?, isAuthServer: Bool?)
+		async throws -> (Data, URLResponse)
+	{
+		print("Request: \(request.httpMethod!) - \(request.url?.absoluteString ?? "missing url")")
 		guard let generator = config.tokenHandling.dpopJWTGenerator else {
 			return try await urlLoader(request)
 		}
@@ -430,8 +458,8 @@ extension Authenticator {
 			using: generator,
 			token: token,
 			tokenHash: tokenHash,
-			issuingServer: login?.issuingServer,
-			provider: urlLoader
+			isAuthServer: isAuthServer,
+			responseProvider: urlLoader
 		)
 	}
 }

@@ -207,6 +207,7 @@ public struct TokenHandling: Sendable {
 			throw AuthenticatorError.httpResponseExpected
 		}
 
+		// FIXME: This isn't really to spec: 401 doesn't mean "refresh", it just means unauthorized.
 		if response.statusCode == 401 {
 			return .refresh
 		}
