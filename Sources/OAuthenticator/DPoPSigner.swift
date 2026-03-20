@@ -152,6 +152,14 @@ extension DPoPSigner {
 			return (data, response)
 		}
 
+		// On a successful response, store the updated nonce for future requests
+		// but return immediately. Retrying a successful request would break
+		// single-use operations like authorization code exchange (RFC 9449 §4.1).
+		if let httpResponse = response as? HTTPURLResponse,
+		   (200..<300).contains(httpResponse.statusCode) {
+			return (data, response)
+		}
+
 		print("DPoP nonce updated", existingNonce ?? "", nonce ?? "")
 
 		// repeat once, using newly-established nonce
