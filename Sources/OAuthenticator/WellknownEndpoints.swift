@@ -66,7 +66,7 @@ public struct ServerMetadata: Codable, Hashable, Sendable {
 // See: https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/
 public struct ClientMetadata: Hashable, Codable, Sendable {
 	public let clientId: String
-	public let scope: String
+	public let scope: String?
 	public let redirectURIs: [String]
 	public let dpopBoundAccessTokens: Bool
 
@@ -100,7 +100,7 @@ extension ClientMetadata {
 		return AppCredentials(
 			clientId: clientId,
 			clientPassword: "",
-			scopes: scope.components(separatedBy: " "),
+			scopes: scope?.components(separatedBy: " ") ?? [],
 			callbackURL: url
 		)
 	}
