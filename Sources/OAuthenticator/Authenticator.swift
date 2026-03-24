@@ -14,6 +14,9 @@ public enum AuthenticatorError: Error, Hashable {
 	case refreshUnsupported
 	case refreshNotPossible
 	case tokenInvalid
+	case invalidRequest(String, String)
+	case invalidGrant(String, String)
+	case unrecognizedError(String, String)
 	case manualAuthenticationRequired
 	case httpResponseExpected
 	case unauthorizedRefreshFailed
@@ -26,6 +29,7 @@ public enum AuthenticatorError: Error, Hashable {
 	case stateTokenMismatch(String, String)
 	case issuingServerMismatch(String, String)
 	case pkceRequired
+	case rateLimited(HTTPURLResponse)
 }
 
 /// Manage state required to executed authenticated URLRequests.
@@ -395,9 +399,34 @@ extension Authenticator {
 
 		request.httpBody = Data(body.utf8)
 
-		let (parData, _) = try await self.dpopResponse(for: request, login: nil, isAuthServer: true)
+		let (data, response) = try await self.dpopResponse(for: request, login: nil, isAuthServer: true)
 
-		return try JSONDecoder().decode(PARResponse.self, from: parData)
+		guard let httpResponse = response as? HTTPURLResponse else {
+			throw AuthenticatorError.httpResponseExpected
+		}
+
+		switch httpResponse.statusCode {
+		case 201:
+			return try JSONDecoder().decode(PARResponse.self, from: data)
+		// Expected response error status codes 405, 413, 429:
+		// See: https://www.rfc-editor.org/rfc/rfc9126.html#section-2.3
+		case 413:
+			throw AuthenticatorError.invalidRequest("invalid_request", "PAR Request body too large")
+		case 429:
+			throw AuthenticatorError.rateLimited(httpResponse)
+		default:
+			if let error = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data) {
+				switch error.error {
+				case "invalid_request":
+					throw AuthenticatorError.invalidRequest(error.error, error.errorDescription ?? "")
+				default:
+					throw AuthenticatorError.unrecognizedError(error.error, error.errorDescription ?? "")
+				}
+			} else {
+				throw AuthenticatorError.unrecognizedError(
+					"unknown", "An unknown error occurred when making pushed authorization request")
+			}
+		}
 	}
 
 	private func getPARRequestURI() async throws -> String? {
