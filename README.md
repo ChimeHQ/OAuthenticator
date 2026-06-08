@@ -15,7 +15,7 @@ Features:
 - Control over when and if users are prompted to log into a service
 - Preliminary support for PAR, PKCE, Server/Client Metadata, and DPoP
 
-This library currently doesn't have functional JWT or JWK generation, and both are required for DPoP. You must use an external JWT library to do this, connected to the system via the `DPoPSigner.JWTGenerator` function. I have used [jose-swift](https://github.com/beatt83/jose-swift) with success.
+This library currently doesn't have functional JWT or JWK generation, and both are required for DPoP. You must use an external JWT library to do this, connected to the system via the `DPoPSigner.JWTGenerator` function.
 
 There's also built-in support for services to streamline integration:
 
