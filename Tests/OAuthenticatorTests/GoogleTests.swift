@@ -42,7 +42,7 @@ struct GoogleTests {
         // Validate URL is properly constructed
 		let params = TokenHandling.AuthorizationURLParameters(
 			credentials: creds,
-			pcke: nil,
+			pkce: nil,
 			parRequestURI: nil,
 			stateToken: "unused",
 			responseProvider: provider
@@ -79,7 +79,7 @@ struct GoogleTests {
         // Validate URL is properly constructed
 		let params = TokenHandling.AuthorizationURLParameters(
 			credentials: creds,
-			pcke: nil,
+			pkce: nil,
 			parRequestURI: nil,
 			stateToken: "unused",
 			responseProvider: provider
