@@ -53,7 +53,7 @@ struct BlueskyTests {
 			redirectURL: URL(string: "app.test://callback?code=123&state=state&iss=this_is_incorrect")!,
 			responseProvider: provider,
 			stateToken: "state",
-			pcke: verifier
+			pkce: verifier
 		)
 
 		await #expect(throws: AuthenticatorError.issuingServerMismatch("this_is_incorrect", "https://server-metadata.test")) {
@@ -113,7 +113,7 @@ struct BlueskyTests {
 			redirectURL: URL(string: "app.test:/callback?code=123&state=state&iss=https://server-metadata.test")!,
 			responseProvider: provider,
 			stateToken: "state",
-			pcke: verifier
+			pkce: verifier
 		)
 
 		await #expect(throws: AuthenticatorError.tokenInvalid) {

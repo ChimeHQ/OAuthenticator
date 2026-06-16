@@ -148,7 +148,7 @@ public enum Bluesky {
 				throw AuthenticatorError.issuingServerMismatch(iss, server.issuer)
 			}
 
-			guard let verifier = params.pcke?.verifier else {
+			guard let verifier = params.pkce?.verifier else {
 				throw AuthenticatorError.pkceRequired
 			}
 

@@ -134,7 +134,7 @@ public struct TokenHandling: Sendable {
 
 	public struct AuthorizationURLParameters: Sendable {
 		public let credentials: AppCredentials
-		public let pcke: PKCEVerifier?
+		public let pkce: PKCEVerifier?
 		public let parRequestURI: String?
 		public let stateToken: String
 		public let responseProvider: URLResponseProvider
@@ -146,7 +146,7 @@ public struct TokenHandling: Sendable {
 		public let redirectURL: URL
 		public let responseProvider: URLResponseProvider
 		public let stateToken: String
-		public let pcke: PKCEVerifier?
+		public let pkce: PKCEVerifier?
 
 		public init(
 			authorizationURL: URL,
@@ -154,14 +154,14 @@ public struct TokenHandling: Sendable {
 			redirectURL: URL,
 			responseProvider: @escaping URLResponseProvider,
 			stateToken: String,
-			pcke: PKCEVerifier?
+			pkce: PKCEVerifier?
 		) {
 			self.authorizationURL = authorizationURL
 			self.credentials = credentials
 			self.redirectURL = redirectURL
 			self.responseProvider = responseProvider
 			self.stateToken = stateToken
-			self.pcke = pcke
+			self.pkce = pkce
 		}
 	}
 

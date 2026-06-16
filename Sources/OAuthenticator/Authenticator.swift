@@ -309,7 +309,7 @@ extension Authenticator {
 
 		let authConfig = TokenHandling.AuthorizationURLParameters(
 			credentials: config.appCredentials,
-			pcke: config.tokenHandling.pkce,
+			pkce: config.tokenHandling.pkce,
 			parRequestURI: parRequestURI,
 			stateToken: stateToken,
 			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) }
@@ -327,7 +327,7 @@ extension Authenticator {
 			redirectURL: callbackURL,
 			responseProvider: { try await self.dpopResponse(for: $0, login: nil, isAuthServer: true) },
 			stateToken: stateToken,
-			pcke: config.tokenHandling.pkce
+			pkce: config.tokenHandling.pkce
 		)
 
 		let login = try await config.tokenHandling.loginProvider(params)
